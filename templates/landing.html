@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Dynamic Pricing using Reinforcement Learning">
+    <title>Dynamic Pricing with RL | Multi-Class Airline Revenue Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/x-icon">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1>Dynamic Pricing using Reinforcement Learning</h1>
+                <p class="subtitle">
+                    Revolutionizing airline revenue management with intelligent, adaptive pricing strategies 
+                    powered by Deep Q-Networks
+                </p>
+                <button class="cta-button" onclick="goToSimulation()">
+                    <span>🚀 Start Simulation</span>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="hero-visual">
+                <div id="dp-animation" class="dynamic-pricing-animation"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why RL Section -->
+    <section class="why-rl-section">
+        <div class="section-container">
+            <h2 class="section-title">Why Reinforcement Learning?</h2>
+            
+            <div class="comparison-grid">
+                <!-- Traditional Approaches -->
+                <div class="comparison-card">
+                    <h3>
+                        <span>📊</span>
+                        Traditional Pricing
+                    </h3>
+                    <ul>
+                        <li>
+                            <span class="icon cross">❌</span>
+                            <span>Fixed rules and heuristics</span>
+                        </li>
+                        <li>
+                            <span class="icon cross">❌</span>
+                            <span>Unable to adapt to market changes</span>
+                        </li>
+                        <li>
+                            <span class="icon cross">❌</span>
+                            <span>Limited by human expertise</span>
+                        </li>
+                        <li>
+                            <span class="icon cross">❌</span>
+                            <span>Suboptimal multi-class coordination</span>
+                        </li>
+                        <li>
+                            <span class="icon cross">❌</span>
+                            <span>Cannot handle disruptions effectively</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- RL Approach -->
+                <div class="comparison-card rl-card">
+                    <h3>
+                        <span>🤖</span>
+                        Reinforcement Learning
+                    </h3>
+                    <ul>
+                        <li>
+                            <span class="icon check">✅</span>
+                            <span>Learns optimal strategies from experience</span>
+                        </li>
+                        <li>
+                            <span class="icon check">✅</span>
+                            <span>Adapts to market dynamics in real-time</span>
+                        </li>
+                        <li>
+                            <span class="icon check">✅</span>
+                            <span>Discovers non-obvious patterns</span>
+                        </li>
+                        <li>
+                            <span class="icon check">✅</span>
+                            <span>Optimizes Economy + Business jointly</span>
+                        </li>
+                        <li>
+                            <span class="icon check">✅</span>
+                            <span>Handles disruptions intelligently</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Key Benefits -->
+            <div class="benefits-section">
+                <h3 style="text-align: center; font-size: 2rem; margin-bottom: 40px;">Key Advantages</h3>
+                <div class="benefits-grid">
+                    <div class="benefit-card">
+                        <div class="benefit-icon">🎯</div>
+                        <h4>Revenue Optimization</h4>
+                        <p>Maximizes total revenue through intelligent joint pricing of Economy and Business classes</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">⚡</div>
+                        <h4>Real-Time Adaptation</h4>
+                        <p>Instantly responds to competitor prices, demand shifts, and market disruptions</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">🧠</div>
+                        <h4>Intelligent Learning</h4>
+                        <p>Continuously improves through millions of simulated booking scenarios</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">📈</div>
+                        <h4>Superior Performance</h4>
+                        <p>Outperforms traditional strategies by 15-25% in revenue generation</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- RL Algorithms Section -->
+    <section class="algorithms-section">
+        <div class="section-container">
+            <h2 class="section-title">Reinforcement Learning Algorithms</h2>
+            
+            <div class="algo-grid">
+                <div class="algo-card highlighted">
+                    <div class="algo-badge">Used in this project</div>
+                    <h3>🎯 Deep Q-Network (DQN)</h3>
+                    <p>
+                        Neural network-based Q-learning that approximates optimal action-value functions 
+                        for complex state spaces. Ideal for discrete action spaces like pricing adjustments.
+                    </p>
+                    <div class="algo-features">
+                        <span class="feature-tag">Experience Replay</span>
+                        <span class="feature-tag">Target Networks</span>
+                        <span class="feature-tag">Prioritized Sampling</span>
+                    </div>
+                </div>
+
+                <div class="algo-card">
+                    <h3>🔄 Double DQN</h3>
+                    <p>
+                        Reduces overestimation bias by decoupling action selection from evaluation, 
+                        leading to more stable and accurate Q-value estimates.
+                    </p>
+                </div>
+
+                <div class="algo-card">
+                    <h3>🎲 Policy Gradient (A3C)</h3>
+                    <p>
+                        Directly optimizes policy through gradient ascent, suitable for continuous 
+                        action spaces and stochastic policies.
+                    </p>
+                </div>
+
+                <div class="algo-card">
+                    <h3>🌟 Proximal Policy Optimization (PPO)</h3>
+                    <p>
+                        State-of-the-art method balancing sample efficiency and stability through 
+                        clipped surrogate objectives.
+                    </p>
+                </div>
+
+                <div class="algo-card">
+                    <h3>⚔️ Dueling DQN</h3>
+                    <p>
+                        Separates state value and action advantage streams for better learning, 
+                        especially when many actions have similar values.
+                    </p>
+                </div>
+
+                <div class="algo-card">
+                    <h3>🎪 Soft Actor-Critic (SAC)</h3>
+                    <p>
+                        Maximum entropy framework encouraging exploration while optimizing for 
+                        both reward and policy entropy.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="architecture-section">
+        <div class="section-container">
+            <h2 class="section-title">System Architecture</h2>
+            
+            <div class="architecture-diagram">
+                <div class="arch-flow">
+                    <div class="arch-box">
+                        <div class="arch-icon">🌍</div>
+                        <h4>Environment</h4>
+                        <p>Multi-route airline market with competitor dynamics</p>
+                    </div>
+                    
+                    <div class="arch-arrow">→</div>
+                    
+                    <div class="arch-box">
+                        <div class="arch-icon">👁️</div>
+                        <h4>State Observation</h4>
+                        <p>Prices, load factors, days to departure, competitors</p>
+                    </div>
+                    
+                    <div class="arch-arrow">→</div>
+                    
+                    <div class="arch-box highlight">
+                        <div class="arch-icon">🧠</div>
+                        <h4>DQN Agent</h4>
+                        <p>4-layer neural network with 256 hidden units</p>
+                    </div>
+                    
+                    <div class="arch-arrow">→</div>
+                    
+                    <div class="arch-box">
+                        <div class="arch-icon">⚡</div>
+                        <h4>Action</h4>
+                        <p>Joint pricing adjustment (9 actions)</p>
+                    </div>
+                    
+                    <div class="arch-arrow">→</div>
+                    
+                    <div class="arch-box">
+                        <div class="arch-icon">💰</div>
+                        <h4>Reward</h4>
+                        <p>Revenue + load factor optimization</p>
+                    </div>
+                </div>
+
+                <!-- Technical Details -->
+                <div class="tech-specs">
+                    <div class="spec-item">
+                        <strong>State Space:</strong> 17 features (prices, loads, competitors, route encoding)
+                    </div>
+                    <div class="spec-item">
+                        <strong>Action Space:</strong> 9 joint pricing actions (±10% or hold for both classes)
+                    </div>
+                    <div class="spec-item">
+                        <strong>Network:</strong> 4 hidden layers [256, 256, 128, 128] with Batch Normalization
+                    </div>
+                    <div class="spec-item">
+                        <strong>Training:</strong> Prioritized Experience Replay, Target Networks, Adam optimizer
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Metrics -->
+    <section class="performance-section">
+        <div class="section-container performance-header">
+
+            <h2 class="section-title">Training Performance</h2>
+
+            <!-- OVERLAY -->
+            <div class="log-viewer-overlay" id="logOverlay" onclick="closeLogViewer()"></div>
+
+            <!-- LOG PANEL -->
+            <div class="log-viewer-panel" id="logPanel">
+                <div class="log-header">
+                    <span>📊 Evaluation Logs</span>
+                    <button onclick="closeLogViewer()">✕</button>
+                </div>
+                <pre class="log-content" id="logContent">Loading logs...</pre>
+            </div>
+
+            <!-- ✅ TWO COLUMN LAYOUT -->
+            <div class="performance-layout">
+
+                <!-- LEFT: TRAINING PHASE SUMMARY -->
+                <div class="training-summary">
+                    <div class="log-viewer-trigger" onclick="openLogViewer()" title="View evaluation logs">
+                        📄
+                    </div>
+                    <h3>Training Phase Summary</h3>
+                    <div class="phase">
+                        <h4>Phase 1: Early Learning (Episodes 50–200)</h4>
+                        <p>
+                            Rapid improvement in reward and revenue as the agent explores the pricing space.
+                            Revenue increased from ₹1.58M to ₹2.02M, with improving load factors.
+                        </p>
+                    </div>
+
+                    <div class="phase">
+                        <h4>Phase 2: Peak Learning (Episodes 200–350)</h4>
+                        <p>
+                            Best performance observed at Episode 250 with ₹2.47M revenue and 98% load factor,
+                            indicating strong demand–price alignment.
+                        </p>
+                    </div>
+
+                    <div class="phase">
+                        <h4>Phase 3: Re-exploration (Episodes 400–650)</h4>
+                        <p>
+                            Temporary fluctuations in reward and revenue due to exploration and policy updates.
+                            Helps avoid local optima.
+                        </p>
+                    </div>
+
+                    <div class="phase">
+                        <h4>Phase 4: Convergence (Episodes 700–950)</h4>
+                        <p>
+                            Stable revenue around ₹2.0–2.1M with consistent load factors, indicating policy convergence.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <!-- PERFORMANCE IMAGES -->
+        <div class="performance-images">
+
+            <div class="performance-image-card">
+                <img src="/results/class_performance.png" alt="Class Performance">
+                <h4>Class Performance</h4>
+                <p>Revenue and demand trends across Economy and Business classes</p>
+            </div>
+
+            <div class="performance-image-card">
+                <img src="/results/route_performance.png" alt="Route Performance">
+                <h4>Route Performance</h4>
+                <p>Route-level revenue optimization and load factor stability</p>
+            </div>
+
+            <div class="performance-image-card wide">
+                <img src="/results/training_progress.png" alt="Training Progress">
+                <h4>Training Progress</h4>
+                <p>Reward convergence and policy stabilization over episodes</p>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="cta-container">
+            <h2>Ready to Experience Intelligent Pricing?</h2>
+            <p>Interact with the trained RL agent and see how it outperforms traditional strategies</p>
+            <button class="cta-button large" onclick="goToSimulation()">
+                <span>🚀 Launch Simulation Dashboard</span>
+            </button>
+        </div>
+    </section>
+
+    <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Multi-Class Airline Revenue Management with Reinforcement Learning">
+    <title>Multi-Class Airline RL Dashboard</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/x-icon">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+</head>
+<body>
+    <div class="container">
+        
+        <!-- HEADER -->
+        <header>
+            <h1>✈️ Multi-Class Airline Revenue Management</h1>
+            <p class="subtitle">Deep Q-Network Agent | Joint Economy + Business Pricing</p>
+            <div class="route-badge">
+                <strong>Route:</strong> <span id="route-name">Loading...</span> | 
+                <strong>Days to Departure:</strong> <span id="days-departure">90</span> | 
+                <strong>Disruption:</strong> <span id="disruption-status">None</span>
+            </div>
+        </header>
+
+        <!-- MAIN DASHBOARD GRID -->
+        <div class="dashboard-grid">
+            
+            <!-- LEFT PANEL - CONTROLS -->
+            <div class="panel controls-panel">
+                <h2>🎮 Control Center</h2>
+                
+                <!-- NEW: Route Selector -->
+                <div class="route-selector-container">
+                    <label class="route-selector-label" for="route-selector">
+                        🛣️ Select Route
+                    </label>
+                    <select id="route-selector" size="5">
+                        <option value="">Loading routes...</option>
+                    </select>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
+                        📊 30 routes available - scroll to view all
+                    </p>
+                </div>
+                
+                <!-- Joint Pricing Actions -->
+                <div class="section">
+                    <h3>💰 Joint Pricing Actions</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 10px;">
+                        Select pricing adjustments for both classes simultaneously
+                    </p>
+                    
+                    <div class="action-grid">
+                        <!-- Row 1: Economy -10% -->
+                        <button class="action-btn decrease" onclick="takeAction(0)" 
+                                title="Economy ↓10%, Business ↓10%">
+                            E↓10%<br>B↓10%
+                        </button>
+                        <button class="action-btn mixed" onclick="takeAction(1)" 
+                                title="Economy ↓10%, Business Hold">
+                            E↓10%<br>B→
+                        </button>
+                        <button class="action-btn mixed" onclick="takeAction(2)" 
+                                title="Economy ↓10%, Business ↑10%">
+                            E↓10%<br>B↑10%
+                        </button>
+                        
+                        <!-- Row 2: Economy Hold -->
+                        <button class="action-btn mixed" onclick="takeAction(3)" 
+                                title="Economy Hold, Business ↓10%">
+                            E→<br>B↓10%
+                        </button>
+                        <button class="action-btn hold" onclick="takeAction(4)" 
+                                title="Economy Hold, Business Hold">
+                            E→<br>B→
+                        </button>
+                        <button class="action-btn mixed" onclick="takeAction(5)" 
+                                title="Economy Hold, Business ↑10%">
+                            E→<br>B↑10%
+                        </button>
+                        
+                        <!-- Row 3: Economy +10% -->
+                        <button class="action-btn mixed" onclick="takeAction(6)" 
+                                title="Economy ↑10%, Business ↓10%">
+                            E↑10%<br>B↓10%
+                        </button>
+                        <button class="action-btn mixed" onclick="takeAction(7)" 
+                                title="Economy ↑10%, Business Hold">
+                            E↑10%<br>B→
+                        </button>
+                        <button class="action-btn increase" onclick="takeAction(8)" 
+                                title="Economy ↑10%, Business ↑10%">
+                            E↑10%<br>B↑10%
+                        </button>
+                    </div>
+                    
+                    <div class="action-legend">
+                        <span class="legend-item"><strong>E</strong> = Economy</span>
+                        <span class="legend-item"><strong>B</strong> = Business</span>
+                    </div>
+                </div>
+
+                <!-- AI Recommendation -->
+                <div class="section ai-recommendation">
+                    <h3>🤖 RL Agent Recommendation</h3>
+                    <div id="ai-rec-content">
+                        <p class="loading">Analyzing market state...</p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
+                        <button class="btn-primary" onclick="getAIRecommendation()">
+                            🔄 Refresh
+                        </button>
+                        <button class="btn-success" onclick="followAI()">
+                            ✅ Follow AI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Disruptions -->
+                <div class="section">
+                    <h3>⚠️ Trigger Disruption</h3>
+                    <div class="button-group-small">
+                        <button class="disruption-btn" onclick="triggerDisruption('weather')">
+                            ⛈️ Weather
+                        </button>
+                        <button class="disruption-btn" onclick="triggerDisruption('pilot_strike')">
+                            ✊ Strike
+                        </button>
+                        <button class="disruption-btn" onclick="triggerDisruption('competitor_cancel')">
+                            ✈️ Comp Cancel
+                        </button>
+                        <button class="disruption-btn" onclick="triggerDisruption('none')">
+                            ✅ Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- System Controls -->
+                <div class="section">
+                    <h3>⚙️ System Controls</h3>
+                    <button class="btn-secondary btn-auto full-width" onclick="autoRun()">
+                        🤖 Auto Run (AI Mode)
+                    </button>
+                    <button class="btn-warning full-width" onclick="resetSimulation()">
+                        🔄 Reset Simulation
+                    </button>
+                </div>
+            </div>
+
+            <!-- CENTER PANEL - METRICS & CHARTS -->
+            <div class="panel metrics-panel">
+                <h2>📊 Live Performance Metrics</h2>
+                
+                <!-- Economy Class Section -->
+                <div class="class-section economy-section">
+                    <h3>💺 Economy Class</h3>
+                    <div class="class-metrics">
+                        <div class="metric-card mini">
+                            <div class="metric-label">Current Price</div>
+                            <div class="metric-value" id="econ-price">₹6,000</div>
+                        </div>
+                        <div class="metric-card mini">
+                            <div class="metric-label">Seats Sold</div>
+                            <div class="metric-value" id="econ-sold">0 / 150</div>
+                        </div>
+                        <div class="metric-card mini">
+                            <div class="metric-label">Load Factor</div>
+                            <div class="metric-value" id="econ-load">0.0%</div>
+                            <div class="metric-progress">
+                                <div class="progress-bar economy-bar" id="econ-progress"></div>
+                            </div>
+                        </div>
+                        <div class="metric-card mini">
+                            <div class="metric-label">Revenue</div>
+                            <div class="metric-value" id="econ-revenue">₹0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="competitors-mini">
+                        <h4>🏢 Competitor Prices</h4>
+                        <div id="econ-competitors" class="competitor-grid-mini"></div>
+                    </div>
+                </div>
+
+                <!-- Business Class Section -->
+                <div class="class-section business-section">
+                    <h3>💼 Business Class</h3>
+                    <div class="class-metrics">
+                        <div class="metric-card mini">
+                            <div class="metric-label">Current Price</div>
+                            <div class="metric-value" id="bus-price">₹12,000</div>
+                        </div>
+                        <div class="metric-card mini">
+                            <div class="metric-label">Seats Sold</div>
+                            <div class="metric-value" id="bus-sold">0 / 30</div>
+                        </div>
+                        <div class="metric-card mini">
+                            <div class="metric-label">Load Factor</div>
+                            <div class="metric-value" id="bus-load">0.0%</div>
+                            <div class="metric-progress">
+                                <div class="progress-bar business-bar" id="bus-progress"></div>
+                            </div>
+                        </div>
+                        <div class="metric-card mini">
+                            <div class="metric-label">Revenue</div>
+                            <div class="metric-value" id="bus-revenue">₹0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="competitors-mini">
+                        <h4>🏢 Competitor Prices</h4>
+                        <div id="bus-competitors" class="competitor-grid-mini"></div>
+                    </div>
+                </div>
+
+                <!-- Overall Performance -->
+                <div class="overall-section">
+                    <h3>✈️ Overall Flight Performance</h3>
+                    <div class="class-metrics">
+                        <div class="metric-card mini highlight">
+                            <div class="metric-label">Total Seats Sold</div>
+                            <div class="metric-value" id="total-sold">0 / 180</div>
+                        </div>
+                        <div class="metric-card mini highlight">
+                            <div class="metric-label">Overall Load Factor</div>
+                            <div class="metric-value" id="total-load">0.0%</div>
+                            <div class="metric-progress">
+                                <div class="progress-bar total-bar" id="total-progress"></div>
+                            </div>
+                        </div>
+                        <div class="metric-card mini highlight">
+                            <div class="metric-label">Total Revenue</div>
+                            <div class="metric-value" id="total-revenue">₹0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-container-multi">
+                    <div class="chart-box">
+                        <h4>📈 Economy Price History</h4>
+                        <canvas id="econPriceChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-box">
+                        <h4>📈 Business Price History</h4>
+                        <canvas id="busPriceChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-box wide">
+                        <h4>💰 Daily Revenue (Economy vs Business)</h4>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL - ACTIVITY LOG -->
+            <div class="panel log-panel">
+                <h2>📝 Activity Log</h2>
+                <div id="activity-log" class="activity-log">
+                    <div class="log-entry">
+                        <span class="log-time">00:00:00</span>
+                        <span class="log-message">Multi-class RL system initialized</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">00:00:01</span>
+                        <span class="log-message">Waiting for first action...</span>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="section" style="margin-top: 20px;">
+                    <h3>📊 Session Summary</h3>
+                    <div style="background: rgba(0, 0, 0, 0.3); padding: 15px; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: var(--text-secondary);">Actions Taken:</span>
+                            <span id="actions-count" style="font-weight: bold;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: var(--text-secondary);">Total Bookings:</span>
+                            <span id="total-bookings" style="font-weight: bold;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">Avg Reward:</span>
+                            <span id="avg-reward" style="font-weight: bold; color: var(--success-color);">0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent Info -->
+                <div class="section" style="margin-top: 20px;">
+                    <h3>🤖 Agent Status</h3>
+                    <div style="background: rgba(0, 0, 0, 0.3); padding: 15px; border-radius: 8px; font-size: 0.85rem;">
+                        <div style="margin-bottom: 6px;">
+                            <strong>Status:</strong> <span id="agent-status">Loading...</span>
+                        </div>
+                        <div style="margin-bottom: 6px;">
+                            <strong>State Size:</strong> <span id="agent-state-size">—</span>
+                        </div>
+                        <div style="margin-bottom: 6px;">
+                            <strong>Action Space:</strong> <span id="agent-action-size">9</span>
+                        </div>
+                        <div>
+                            <strong>Episodes Trained:</strong> <span id="agent-episodes">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="toast"></div>
+
+    <button class="comparison-toggle-btn" onclick="toggleComparison()">
+        📊 Compare with Traditional Models
+    </button>
+
+    <!-- Comparison Panel Overlay -->
+    <div class="comparison-overlay" id="comparison-overlay" onclick="closeComparison()"></div>
+
+    <!-- Comparison Panel (Hidden by Default) -->
+    <div class="comparison-panel" id="comparison-panel">
+        <div class="comparison-header">
+            <div class="comparison-title">
+                📊 RL vs Traditional Pricing Strategies
+            </div>
+            <button class="close-comparison-btn" onclick="closeComparison()">
+                ✕ Close
+            </button>
+        </div>
+        
+        <div class="comparison-controls">
+            <button class="comparison-btn run-comparison-btn" id="run-comparison-btn" onclick="runComparison()">
+                🚀 Run Full Comparison (10 episodes each)
+            </button>
+            <div style="flex: 1; font-size: 0.85rem; color: #94a3b8; display: flex; align-items: center;">
+                ⏱️ This will take 1-2 minutes. Results will show which strategy performs best.
+            </div>
+        </div>
+        
+        <!-- Loading Spinner -->
+        <div class="loading-spinner" id="loading-spinner">
+            <div class="spinner"></div>
+            <p style="color: #94a3b8; font-size: 1.1rem;">
+                Running comparison across all strategies...<br>
+                <small>Evaluating 10 episodes per strategy</small>
+            </p>
+        </div>
+        
+        <!-- Results Container -->
+        <div id="comparison-results" style="display: none;">
+            <!-- Summary Section -->
+            <div class="comparison-summary" id="comparison-summary" style="display: none;">
+                <div class="summary-title">
+                    🏆 Performance Summary
+                </div>
+                <div class="summary-content" id="summary-content">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Strategy Cards Grid -->
+            <div class="comparison-grid" id="strategy-cards">
+                <!-- Populated by JavaScript -->
+            </div>
+            
+            <!-- Comparison Chart -->
+            <div class="comparison-chart-container">
+                <h3 style="color: #fff; margin-bottom: 15px;">📈 Revenue Comparison</h3>
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    
+    <script>
+        console.log('%c🚀 Multi-Class Airline RL Dashboard Loaded', 'color: #10b981; font-size: 16px; font-weight: bold;');
+        console.log('%c📊 With Route Selector & Daily Revenue Tracking', 'color: #3b82f6; font-size: 12px;');
+    </script>
+</body>
+</html>
