@@ -519,7 +519,7 @@ def run_comparison():
     
     try:
         data = request.json
-        num_episodes = data.get('episodes', 10)
+        num_episodes = data.get('episodes', 50)
         
         print(f"\n🔄 Running comparison with {num_episodes} episodes per strategy...")
         

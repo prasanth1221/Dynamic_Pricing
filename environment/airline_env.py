@@ -76,9 +76,9 @@ class AirlineRevenueEnv(gym.Env):
             dtype=np.float32
         )
 
-        # Demand parameters
+        # Demand parameters — FIXED: bus_base_demand raised to match economy
         self.econ_base_demand = 0.12
-        self.bus_base_demand = 0.08
+        self.bus_base_demand = 0.12   # was 0.08 — too low, caused poor business fill
         self.econ_price_elasticity = 2.5
         self.bus_price_elasticity = 1.2
 
@@ -214,13 +214,22 @@ class AirlineRevenueEnv(gym.Env):
         return np.clip(demand, 0, 1)
 
     def _calculate_bus_demand(self):
-        """Business demand model"""
+        """
+        Business demand model — FIXED:
+        Business travelers book closer to departure (last-minute, corporate).
+        Demand ramps up as departure approaches, not flat.
+        """
         days_ratio = self.days_to_departure / self.max_days
+
+        # FIXED: Business demand increases as departure approaches (opposite of economy)
+        # Corporate travelers book last-minute, not 90 days out
         if days_ratio > 0.7:
-            time_factor = 0.5
+            time_factor = 0.4   # was 0.5 — early booking very low for business
+        elif days_ratio > 0.4:
+            time_factor = 0.7   # mid-period moderate demand
         else:
-            time_factor = 0.8 + (1 - days_ratio) * 0.7
-        
+            time_factor = 1.2   # last 36 days — peak business demand
+
         bus_comp_avg = np.mean(list(self.bus_competitors.values()))
         price_ratio = self.bus_price / bus_comp_avg if bus_comp_avg > 0 else 1.0
         price_factor = np.exp(-self.bus_price_elasticity * (price_ratio - 1))
@@ -332,11 +341,13 @@ class AirlineRevenueEnv(gym.Env):
             step_revenue_econ, step_revenue_bus
         )
         
+        # FIXED: same-action penalty reduced from -8.0 to -1.0
+        # Only penalize holding (action 4) when load is dangerously low
         if self.prev_action is not None:
-            if action == self.prev_action and action == 4: 
+            if action == self.prev_action and action == 4:
                 load_factor = (self.econ_sold + self.bus_sold) / self.total_seats
                 if load_factor < 0.4 and self.days_to_departure < 30:
-                    reward -= 2.0 
+                    reward -= 1.0  # was 2.0, keep mild
 
         # Check termination
         done = (
@@ -369,23 +380,85 @@ class AirlineRevenueEnv(gym.Env):
         self.episode_history.append(info.copy())
         self.prev_action = action
 
-
         return self._get_state(), reward, terminated, truncated, info
 
-    def _calculate_reward(self, econ_bookings, bus_bookings, step_revenue_econ, step_revenue_bus):
-        # Primary: Revenue (scaled properly)
-        step_revenue = step_revenue_econ + step_revenue_bus
-        reward = step_revenue / 5000.0  # normalize to ~0-10 range
-        
-        # Secondary: Urgency penalty for low load near departure
+    def _calculate_reward(self, econ_bookings, bus_bookings,
+                      step_revenue_econ, step_revenue_bus):
+        """
+        FULLY REDESIGNED reward function.
+        Goals:
+          1. Maximize total revenue (beat competitors)
+          2. Maximize load factor (especially business class)
+          3. Price business competitively to fill seats, not just charge max
+        """
+
+        # 1. PRIMARY: Revenue reward
+        revenue_reward = (step_revenue_econ + step_revenue_bus) / 1000.0
+        reward = revenue_reward
+
+        # 2. Overall load factor — reward high load aggressively, never penalize 90%+
         load_factor = (self.econ_sold + self.bus_sold) / self.total_seats
-        if self.days_to_departure < 14 and load_factor < 0.6:
-            reward -= 3.0
-        
-        # Business class bonus (don't over-weight it)
-        if bus_bookings > 0:
-            reward += bus_bookings * 0.5
-        
+        if load_factor >= 0.95:
+            reward += 8
+        elif load_factor >= 0.90:
+            reward += 5
+        elif load_factor >= 0.80:
+            reward += 3
+        elif load_factor >= 0.70:
+            reward += 1
+        else:
+            reward -= 3  # penalize low overall load
+
+        # 3. Business class fill — KEY fix, agent was leaving seats empty
+        bus_load = self.bus_sold / self.bus_seats_total
+        if bus_load >= 0.85:
+            reward += 8   # exceptional business fill
+        elif bus_load >= 0.75:
+            reward += 5
+        elif bus_load >= 0.60:
+            reward += 2
+        elif bus_load < 0.50:
+            reward -= 5   # strongly penalize empty business seats
+
+        # 4. Competitor pricing
+        econ_comp_avg = np.mean(list(self.econ_competitors.values()))
+        bus_comp_avg = np.mean(list(self.bus_competitors.values()))
+
+        if self.current_disruption == "none":
+            # Economy: charge at or above competitors
+            if self.econ_price >= econ_comp_avg:
+                reward += 2
+            else:
+                reward -= 1  # mild penalty for undercutting economy
+
+            # Business: be in competitive sweet spot to FILL seats
+            # Slightly below to at-market is optimal — fills seats AND gets good price
+            if 0.85 * bus_comp_avg <= self.bus_price <= 1.05 * bus_comp_avg:
+                reward += 4  # sweet spot
+            elif 1.05 * bus_comp_avg < self.bus_price <= 1.15 * bus_comp_avg:
+                reward += 1  # slightly above market — ok
+            elif self.bus_price > 1.15 * bus_comp_avg:
+                reward -= 3  # too expensive = empty business seats
+
+        # 5. Late-stage empty seat penalty (last 7 days)
+        if self.days_to_departure < 7 and load_factor < 0.70:
+            empty_seats = self.total_seats - (self.econ_sold + self.bus_sold)
+            reward -= empty_seats * 0.5
+
+        # 6. Late-stage business empty seat penalty (last 14 days)
+        if self.days_to_departure < 14 and bus_load < 0.60:
+            bus_empty = self.bus_seats_total - self.bus_sold
+            reward -= bus_empty * 0.8  # stronger penalty for empty premium seats
+
+        # 7. Disruption-aware behavior
+        if self.current_disruption == "competitor_cancel":
+            if self.econ_price > econ_comp_avg or self.bus_price > bus_comp_avg:
+                reward += 6  # opportunistic pricing during competitor disruption
+
+        elif self.current_disruption in ["weather", "pilot_strike"]:
+            if self.econ_price < econ_comp_avg or self.bus_price < bus_comp_avg:
+                reward += 5  # lower prices to capture demand during disruptions
+
         return reward
 
     def render(self, mode="human"):
@@ -433,14 +506,15 @@ if __name__ == "__main__":
         
         # Test episode
         print("\n🎮 Running test episode...")
-        state = env.reset()
+        state, _ = env.reset()
         print(f"Initial state shape: {state.shape}")
         print(f"Selected route: {env.route}")
         
         total_reward = 0
         for step in range(10):
             action = env.action_space.sample()
-            state, reward, done, info = env.step(action)
+            state, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             total_reward += reward
             
             if step % 3 == 0:
