@@ -603,48 +603,48 @@ def main():
     for key, value in agent_params.items():
         print(f"  {key}: {value}")
 
-    # agent = DQNAgent(
-    #     state_size=state_size,
-    #     action_size=action_size,
-    #     **agent_params
-    # )
-
-    # trainer = AirlineRLTrainer(env=env, agent=agent)
-
-    # print("\n🚀 Starting training...")
-    # summary = trainer.train(
-    #     num_episodes=TRAINING_CONFIG.get('num_episodes', 1000),
-    #     target_update_freq=TRAINING_CONFIG.get('target_update_freq', 10),
-    #     save_freq=TRAINING_CONFIG.get('save_freq', 100),
-    #     eval_freq=TRAINING_CONFIG.get('eval_freq', 50),
-    #     verbose=True
-    # )
     agent = DQNAgent(
         state_size=state_size,
         action_size=action_size,
         **agent_params
     )
 
-    # ── Load existing 6000-episode model and continue from it ──
-    existing_model = 'models/trained_models/final_model_20260301_171317.pth'
-    if os.path.exists(existing_model):
-        agent.load_model(existing_model, load_optimizer=False)
-        agent.epsilon = 0.05   # small exploration — not from scratch
-        print(f"\n✅ Loaded existing model: {existing_model}")
-        print(f"   Continuing from episode 6000 with epsilon=0.05")
-    else:
-        print(f"\n⚠️  No existing model found — training from scratch")
-
     trainer = AirlineRLTrainer(env=env, agent=agent)
 
-    print("\n🚀 Starting fine-tune training (2000 episodes)...")
+    print("\n🚀 Starting training...")
     summary = trainer.train(
-        num_episodes=2000,     # only 2000 more — not 6000 again
+        num_episodes=TRAINING_CONFIG.get('num_episodes', 1000),
         target_update_freq=TRAINING_CONFIG.get('target_update_freq', 10),
         save_freq=TRAINING_CONFIG.get('save_freq', 100),
         eval_freq=TRAINING_CONFIG.get('eval_freq', 50),
         verbose=True
     )
+    # agent = DQNAgent(
+    #     state_size=state_size,
+    #     action_size=action_size,
+    #     **agent_params
+    # )
+
+    # # ── Load existing 6000-episode model and continue from it ──
+    # existing_model = 'models/trained_models/final_model_20260301_171317.pth'
+    # if os.path.exists(existing_model):
+    #     agent.load_model(existing_model, load_optimizer=False)
+    #     agent.epsilon = 0.05   # small exploration — not from scratch
+    #     print(f"\n✅ Loaded existing model: {existing_model}")
+    #     print(f"   Continuing from episode 6000 with epsilon=0.05")
+    # else:
+    #     print(f"\n⚠️  No existing model found — training from scratch")
+
+    # trainer = AirlineRLTrainer(env=env, agent=agent)
+
+    # print("\n🚀 Starting fine-tune training (2000 episodes)...")
+    # summary = trainer.train(
+    #     num_episodes=2000,     # only 2000 more — not 6000 again
+    #     target_update_freq=TRAINING_CONFIG.get('target_update_freq', 10),
+    #     save_freq=TRAINING_CONFIG.get('save_freq', 100),
+    #     eval_freq=TRAINING_CONFIG.get('eval_freq', 50),
+    #     verbose=True
+    # )
 
     print("\n" + "=" * 80)
     print("  📊 TRAINING SUMMARY")
