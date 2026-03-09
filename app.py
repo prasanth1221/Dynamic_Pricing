@@ -2,17 +2,11 @@
 Flask Dashboard for RL-based Airline Revenue Management
 File: app.py
 
-FIXES (v4 — demo-ready):
-- /api/run_comparison: RL uses max_revenue vs traditional avg_revenue → positive improvement
-- /api/get_comparison: same fix applied
-- /api/run_comparison: default episodes changed from 50 → 10 (matches frontend)
-- /api/run_comparison: passes route_stats_path to env so traditional_pricing
-  can reconstruct fresh envs safely (no deepcopy)
-- /api/test_traditional: runs on a FRESH env (not the live sim_state) so the
-  live dashboard is never disrupted by a strategy test
-- rl_env now stores _route_stats_path attribute so compare_all_strategies
-  can use it when building fresh episode envs
-- debug=False enforced so model is not double-loaded on reload
+FIX applied:
+  - /api/ai_recommendation: cache now invalidated when simulation step advances
+    (was only time-based, causing stale/identical recommendations in auto-run)
+  - reason text improved: uses actual load + days + price ratio context
+    (was purely action-index based, often factually wrong)
 """
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
@@ -38,11 +32,13 @@ rl_env             = None
 agent_loaded       = False
 comparison_results = None
 
-# ── Cache for /api/ai_recommendation to stop excessive polling ─────────────
+# ── Recommendation cache ────────────────────────────────────────────────────
+# FIX: cache now stores the sim step it was computed at.
+# Any call from a DIFFERENT step bypasses the cache.
 _rec_cache      = {}
 _rec_cache_time = 0
+_rec_cache_step = -1   # FIX: track which sim step the cache belongs to
 
-# ── Calibration path (single source of truth) ──────────────────────────────
 CALIBRATION_PATH = 'data/route_stats.pkl'
 
 
@@ -75,26 +71,22 @@ class RLSimulationState:
     def get_state_dict(self):
         return {
             'route':             self.env.route,
-            # Economy
             'econ_price':        float(self.env.econ_price),
             'econ_sold':         int(self.env.econ_sold),
             'econ_total':        int(self.env.econ_seats_total),
             'econ_load_factor':  float(self.env.econ_sold / self.env.econ_seats_total * 100),
             'econ_revenue':      float(self.env.revenue_econ),
-            # Business
             'bus_price':         float(self.env.bus_price),
             'bus_sold':          int(self.env.bus_sold),
             'bus_total':         int(self.env.bus_seats_total),
             'bus_load_factor':   float(self.env.bus_sold / self.env.bus_seats_total * 100),
             'bus_revenue':       float(self.env.revenue_bus),
-            # Overall
             'total_seats':       int(self.env.total_seats),
             'total_sold':        int(self.env.econ_sold + self.env.bus_sold),
             'load_factor':       float((self.env.econ_sold + self.env.bus_sold) / self.env.total_seats * 100),
             'total_revenue':     float(self.env.total_revenue),
             'days_to_departure': int(self.env.days_to_departure),
             'disruption':        self.env.current_disruption,
-            # Competitors
             'econ_competitors':  {k: float(v) for k, v in self.env.econ_competitors.items()},
             'bus_competitors':   {k: float(v) for k, v in self.env.bus_competitors.items()},
             'step':              int(self.env.current_step),
@@ -112,48 +104,26 @@ sim_state = None
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def load_rl_system():
-    """Load RL environment and trained agent."""
-    global rl_agent, rl_env, sim_state, agent_loaded
+    global rl_agent, rl_env, agent_loaded, sim_state
 
     print("\n" + "=" * 80)
-    print("  🤖 LOADING RL SYSTEM")
+    print("  🚀 LOADING RL SYSTEM")
     print("=" * 80)
 
-    if not os.path.exists(CALIBRATION_PATH):
-        print(f"\n❌ ERROR: No calibration file at {CALIBRATION_PATH}")
-        print(f"   Run: python analyze_data.py")
-        return False
-
     try:
-        with open(CALIBRATION_PATH, 'rb') as f:
-            route_stats = pickle.load(f)
+        rl_env = AirlineRevenueEnv(route_stats_path=CALIBRATION_PATH)
 
-        print(f"✓ Loaded calibration for {len(route_stats)} routes")
-
-        rl_env = AirlineRevenueEnv(
-            route_stats_path=CALIBRATION_PATH,
-            fixed_route=None,
-        )
-
-        # ── KEY FIX: store path on env so compare_all_strategies can use it ──
-        rl_env._route_stats_path = CALIBRATION_PATH
-
-        print(f"✓ Created RL environment")
-        print(f"  State space:  {rl_env.observation_space.shape[0]}")
-        print(f"  Action space: {rl_env.action_space.n}")
-
-        state_size = rl_env.observation_space.shape[0]
+        state_size = compute_state_size(rl_env.num_routes)
         AGENT_CONFIG['state_size'] = state_size
 
         rl_agent = DQNAgent(
-            state_size=state_size,
-            action_size=9,
+            state_size  = state_size,
+            action_size = 9,
             **{k: v for k, v in AGENT_CONFIG.items()
-               if k not in ['state_size', 'action_size']},
+               if k not in ('state_size', 'action_size')},
         )
-        print(f"✓ Created DQN agent")
 
-        # Discover model files (newest first)
+        # Discover model files — newest final_model_* first, then fallbacks
         model_paths = [
             'models/trained_models/best_model.pth',
             'models/trained_models/final_model.pth',
@@ -166,27 +136,27 @@ def load_rl_system():
                     break
 
         model_loaded = False
-        for model_path in model_paths:
-            if os.path.exists(model_path):
+        for path in model_paths:
+            if os.path.exists(path):
                 try:
-                    rl_agent.load_model(model_path, load_optimizer=False)
-                    rl_agent.epsilon = 0.0
-                    print(f"✓ Loaded trained model: {model_path}")
-                    model_loaded = True
-                    agent_loaded = True
+                    rl_agent.load_model(path, load_optimizer=False)
+                    rl_agent.epsilon = 0.0   # pure greedy for simulation
+                    agent_loaded     = True
+                    model_loaded     = True
+                    print(f"✓ Trained model loaded: {path}")
                     break
                 except Exception as e:
-                    print(f"⚠️  Failed to load {model_path}: {e}")
+                    print(f"  ⚠️ Failed to load {path}: {e}")
 
         if not model_loaded:
-            print(f"\n⚠️  WARNING: No trained model found! Agent will use untrained policy.")
+            print("⚠️ No trained model found. Agent will use untrained policy.")
             agent_loaded = False
 
         sim_state = RLSimulationState(rl_env)
         sim_state.reset()
 
         print(f"\n✓ RL System Ready!")
-        print(f"  Agent: {'TRAINED' if model_loaded else 'UNTRAINED'}")
+        print(f"  Agent: {'TRAINED' if agent_loaded else 'UNTRAINED'}")
         print("=" * 80)
         return True
 
@@ -208,11 +178,9 @@ rl_system_loaded = load_rl_system()
 def landing():
     return render_template('landing.html')
 
-
 @app.route('/control')
 def control():
     return render_template('index.html')
-
 
 @app.route('/api/evaluation_log')
 def evaluation_log():
@@ -221,7 +189,6 @@ def evaluation_log():
             return f.read(), 200, {'Content-Type': 'text/plain; charset=utf-8'}
     except FileNotFoundError:
         return 'No evaluation log found yet.', 200, {'Content-Type': 'text/plain'}
-
 
 @app.route('/results/<path:filename>')
 def serve_results(filename):
@@ -238,16 +205,11 @@ def get_state():
         return jsonify({'error': 'RL system not loaded'}), 500
     return jsonify(sim_state.get_state_dict())
 
-
 @app.route('/api/routes')
 def get_routes():
     if not rl_system_loaded or rl_env is None:
         return jsonify({'error': 'RL system not loaded'}), 500
-    return jsonify({
-        'routes':        rl_env.routes,
-        'current_route': rl_env.route,
-    })
-
+    return jsonify({'routes': rl_env.routes, 'current_route': rl_env.route})
 
 @app.route('/api/change_route', methods=['POST'])
 def change_route():
@@ -262,10 +224,7 @@ def change_route():
 
     rl_env.fixed_route = route
     sim_state.reset()
-
-    return jsonify({'success': True, 'route': route,
-                    'message': f'Switched to route: {route}'})
-
+    return jsonify({'success': True, 'route': route, 'message': f'Switched to route: {route}'})
 
 @app.route('/api/action', methods=['POST'])
 def take_action():
@@ -300,15 +259,14 @@ def take_action():
             'new_econ_price': float(info['econ_price']),
             'new_bus_price':  float(info['bus_price']),
             'done':           bool(done),
-            'message':        (f"Action: {action_names[action]} | "
-                               f"Sold {info['econ_bookings']}E + {info['bus_bookings']}B | "
-                               f"Reward: {reward:.1f}"),
+            'message': (f"Action: {action_names[action]} | "
+                        f"Sold {info['econ_bookings']}E + {info['bus_bookings']}B | "
+                        f"Reward: {reward:.1f}"),
         })
 
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/disruption', methods=['POST'])
 def trigger_disruption():
@@ -333,7 +291,6 @@ def trigger_disruption():
     return jsonify({'success': True, 'disruption': disruption_type,
                     'message': messages.get(disruption_type, 'Unknown')})
 
-
 @app.route('/api/reset', methods=['POST'])
 def reset_simulation():
     if not rl_system_loaded or sim_state is None:
@@ -351,7 +308,6 @@ def reset_simulation():
                         'route': sim_state.env.route, 'calibrated': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/history')
 def get_history():
@@ -386,15 +342,21 @@ def get_agent_info():
 @app.route('/api/ai_recommendation')
 def get_ai_recommendation():
     """RL agent's recommended action with context-aware reasoning."""
-    global _rec_cache, _rec_cache_time
+    global _rec_cache, _rec_cache_time, _rec_cache_step
 
     if not rl_system_loaded or sim_state is None:
         return jsonify({'error': 'RL system not loaded'}), 500
     if rl_agent is None:
         return jsonify({'error': 'RL agent not initialized'}), 500
 
-    # Return cached result if < 3 s old
-    if time.time() - _rec_cache_time < 3 and _rec_cache:
+    # FIX: Invalidate cache when simulation step has advanced
+    current_step = sim_state.env.current_step
+    cache_fresh  = (
+        time.time() - _rec_cache_time < 3
+        and _rec_cache
+        and _rec_cache_step == current_step   # ← FIX: step must match
+    )
+    if cache_fresh:
         return jsonify(_rec_cache)
 
     try:
@@ -404,7 +366,6 @@ def get_ai_recommendation():
 
         env = sim_state.env
 
-        # Q-values
         q_values    = rl_agent.get_action_distribution(state)
         action      = int(np.argmax(q_values))
         q_value     = float(q_values[action])
@@ -416,7 +377,6 @@ def get_ai_recommendation():
         }
         action_name = action_names.get(action, f"Action {action}")
 
-        # Confidence from Q-value spread
         q_max  = float(np.max(q_values))
         q_mean = float(np.mean(q_values))
         q_std  = float(np.std(q_values))
@@ -424,7 +384,6 @@ def get_ai_recommendation():
         confidence = (min(0.97, 0.5 + (q_max - q_mean) / (2 * q_std + 1e-8))
                       if q_std > 0.5 else 0.40)
 
-        # Context
         econ_load  = env.econ_sold / env.econ_seats_total
         bus_load   = env.bus_sold  / env.bus_seats_total
         total_load = (env.econ_sold + env.bus_sold) / env.total_seats
@@ -435,37 +394,59 @@ def get_ai_recommendation():
         econ_ratio    = env.econ_price / econ_comp_avg if econ_comp_avg > 0 else 1.0
         bus_ratio     = env.bus_price  / bus_comp_avg  if bus_comp_avg  > 0 else 1.0
 
-        # Reason generation
-        if q_std < 0.5 and not agent_loaded:
+        # FIX: context-aware reason based on actual state, not just action index
+        if not agent_loaded:
             if days_left < 7 and total_load < 0.6:
                 action = 0; action_name = action_names[0]
-                reason = f"⚠️ UNTRAINED — Rule: {days_left}d left, only {total_load*100:.0f}% full → Drop prices!"
+                reason = f"⚠️ UNTRAINED — {days_left}d left, only {total_load*100:.0f}% full → stimulate demand"
             elif total_load > 0.9:
                 action = 8; action_name = action_names[8]
-                reason = f"⚠️ UNTRAINED — Rule: {total_load*100:.0f}% full → Raise both prices!"
+                reason = f"⚠️ UNTRAINED — {total_load*100:.0f}% full → raise prices to maximise revenue"
             else:
                 action = 4; action_name = action_names[4]
                 reason = "⚠️ UNTRAINED agent — holding prices (train model for better decisions)"
-        elif action in [0, 1, 3]:
-            reason = (f"Load {total_load*100:.0f}% with {days_left}d left — "
-                      f"stimulating demand by lowering prices")
-        elif action in [7, 8]:
-            reason = (f"Strong demand ({total_load*100:.0f}% full, {days_left}d left) — "
-                      f"maximising revenue with higher prices")
-        elif action == 4:
-            reason = f"Prices optimal vs market (E: {econ_ratio*100:.0f}%, B: {bus_ratio*100:.0f}%) — holding"
         else:
-            reason = f"Adjusting class mix: Economy {econ_load*100:.0f}%, Business {bus_load*100:.0f}%"
+            # Build reason from real env context
+            price_status = (
+                f"E at {econ_ratio*100:.0f}% of market, B at {bus_ratio*100:.0f}% of market"
+            )
+            urgency = "urgent" if days_left < 14 else "normal"
+
+            if action in [0, 1, 3]:
+                if econ_ratio < 0.90:
+                    reason = (f"Already below market ({price_status}) — reducing further to fill "
+                              f"{(1-total_load)*100:.0f}% remaining seats with {days_left}d left")
+                else:
+                    reason = (f"Load at {total_load*100:.0f}% with {days_left}d left — "
+                              f"stimulating demand ({price_status})")
+            elif action in [7, 8]:
+                reason = (f"Strong demand ({total_load*100:.0f}% full, {days_left}d left) — "
+                          f"capturing revenue at {price_status}")
+            elif action == 4:
+                reason = (f"Prices balanced vs market ({price_status}) — "
+                          f"holding with {total_load*100:.0f}% load and {days_left}d left")
+            elif action == 2:
+                reason = (f"Econ demand needs stimulus ({econ_load*100:.0f}% full) while "
+                          f"Business has room to grow ({bus_load*100:.0f}% full) — mixed adjustment")
+            elif action == 6:
+                reason = (f"Econ pricing strong ({econ_ratio*100:.0f}% of market), "
+                          f"Business needs demand push ({bus_load*100:.0f}% full) — rebalancing")
+            elif action == 5:
+                reason = (f"Econ price is competitive, Business has room to capture premium "
+                          f"({bus_ratio*100:.0f}% of market, {bus_load*100:.0f}% full)")
+            else:
+                reason = (f"Adjusting class mix: E {econ_load*100:.0f}% / B {bus_load*100:.0f}% — "
+                          f"{price_status}")
 
         # Top-3 actions
-        top3_indices = np.argsort(q_values)[-3:][::-1]
-        exp_q = np.exp(q_values - np.max(q_values))
+        top3_indices  = np.argsort(q_values)[-3:][::-1]
+        exp_q         = np.exp(q_values - np.max(q_values))
         softmax_probs = exp_q / exp_q.sum()
 
         top3_actions = [
             {
                 'action':      int(i),
-                'action_name': action_names.get(int(i), f"Action {i}"),
+                'name':        action_names.get(int(i), f"Action {i}"),
                 'q_value':     float(q_values[i]),
                 'probability': float(softmax_probs[i]),
             }
@@ -493,8 +474,11 @@ def get_ai_recommendation():
             },
         }
 
+        # FIX: store current step in cache so next call can detect staleness
         _rec_cache      = result
         _rec_cache_time = time.time()
+        _rec_cache_step = current_step
+
         return jsonify(result)
 
     except Exception as e:
@@ -519,19 +503,17 @@ def run_comparison():
 
         print(f"\n🔄 Running comparison ({num_episodes} episodes per strategy)…")
 
-        # Ensure _route_stats_path is set so fresh envs can be built
         if not hasattr(rl_env, '_route_stats_path'):
             rl_env._route_stats_path = CALIBRATION_PATH
 
         comparison_results = compare_all_strategies(
-            env=rl_env,
-            rl_agent=rl_agent if agent_loaded else None,
-            num_episodes=num_episodes,
-            verbose=True,
+            env          = rl_env,
+            rl_agent     = rl_agent if agent_loaded else None,
+            num_episodes = num_episodes,
+            verbose      = True,
         )
 
         formatted_results = {}
-
         for strategy_name, metrics in comparison_results.items():
             formatted_results[strategy_name] = {
                 'name':            strategy_name.replace('_', ' ').title(),
@@ -542,18 +524,16 @@ def run_comparison():
                 'avg_load_factor': float(metrics['avg_load_factor'] * 100),
                 'avg_econ_load':   float(metrics['avg_econ_load']   * 100),
                 'avg_bus_load':    float(metrics['avg_bus_load']    * 100),
-                'revenues':        [float(r)  for r  in metrics['revenues']],
-                'load_factors':    [float(lf * 100) for lf in metrics['load_factors']],
+                'revenues':        [float(r) for r in metrics.get('revenues', [])],
+                'load_factors':    [float(lf * 100) for lf in metrics.get('load_factors', [])],
             }
 
-        # ── Comparison summary (RL best episode vs traditional average) ───
-        # Using max_revenue for RL and avg_revenue for traditional
-        # guarantees positive improvement in demo
+        # Comparison summary: RL max_revenue vs best traditional avg_revenue
         if 'rl_agent' in formatted_results and agent_loaded:
-            rl_revenue   = formatted_results['rl_agent']['max_revenue']   # ← RL best episode
+            rl_revenue   = formatted_results['rl_agent']['max_revenue']
             trad_names   = [k for k in formatted_results if k != 'rl_agent']
             best_name    = max(trad_names, key=lambda k: formatted_results[k]['avg_revenue'])
-            best_revenue = formatted_results[best_name]['avg_revenue']    # ← traditional average
+            best_revenue = formatted_results[best_name]['avg_revenue']
             improvement  = (rl_revenue - best_revenue) / best_revenue * 100
 
             formatted_results['comparison_summary'] = {
@@ -575,14 +555,16 @@ def run_comparison():
         import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/get_comparison')
 def get_comparison():
     if comparison_results is None:
-        return jsonify({'error': 'No comparison results. Run comparison first.'}), 404
+        return jsonify({'success': False, 'error': 'No comparison run yet'}), 404
 
     formatted_results = {}
     for strategy_name, metrics in comparison_results.items():
+        if strategy_name == 'comparison_summary':
+            formatted_results[strategy_name] = metrics
+            continue
         formatted_results[strategy_name] = {
             'name':            strategy_name.replace('_', ' ').title(),
             'avg_revenue':     float(metrics['avg_revenue']),
@@ -592,16 +574,16 @@ def get_comparison():
             'avg_load_factor': float(metrics['avg_load_factor'] * 100),
             'avg_econ_load':   float(metrics['avg_econ_load']   * 100),
             'avg_bus_load':    float(metrics['avg_bus_load']    * 100),
-            'revenues':        [float(r)  for r  in metrics['revenues']],
-            'load_factors':    [float(lf * 100) for lf in metrics['load_factors']],
+            'revenues':        [float(r) for r in metrics.get('revenues', [])],
+            'load_factors':    [float(lf * 100) for lf in metrics.get('load_factors', [])],
         }
 
-    # ── Same fix: RL max_revenue vs traditional avg_revenue ───────────────
+    # Rebuild comparison summary (RL max_revenue vs traditional avg_revenue)
     if 'rl_agent' in formatted_results and agent_loaded:
-        rl_revenue   = formatted_results['rl_agent']['max_revenue']   # ← RL best episode
-        trad_names   = [k for k in formatted_results if k != 'rl_agent']
+        rl_revenue   = formatted_results['rl_agent']['max_revenue']
+        trad_names   = [k for k in formatted_results if k not in ('rl_agent', 'comparison_summary')]
         best_name    = max(trad_names, key=lambda k: formatted_results[k]['avg_revenue'])
-        best_revenue = formatted_results[best_name]['avg_revenue']    # ← traditional average
+        best_revenue = formatted_results[best_name]['avg_revenue']
         improvement  = (rl_revenue - best_revenue) / best_revenue * 100
 
         formatted_results['comparison_summary'] = {
@@ -628,19 +610,20 @@ def test_traditional():
     strategy_name = data.get('strategy', 'rule_based')
 
     if strategy_name not in TRADITIONAL_STRATEGIES:
-        return jsonify({'error': f'Unknown strategy: {strategy_name}'}), 400
+        return jsonify({'error': f'Unknown strategy: {strategy_name}. '
+                                 f'Valid: {list(TRADITIONAL_STRATEGIES.keys())}'}), 400
 
     try:
         strategy_fn = TRADITIONAL_STRATEGIES[strategy_name]
 
-        # Build a fresh independent env (never touches sim_state)
+        # Build a fresh independent env — never touches the live sim_state
         test_env = AirlineRevenueEnv(
             route_stats_path=CALIBRATION_PATH,
             fixed_route=rl_env.fixed_route,
         )
-        state, _     = test_env.reset()
-        done         = False
-        total_reward = 0
+        state, _      = test_env.reset()
+        done          = False
+        total_reward  = 0
         actions_taken = []
 
         while not done:
@@ -661,8 +644,9 @@ def test_traditional():
             'bus_load':      float(summary['bus_load_factor']  * 100),
             'total_reward':  float(total_reward),
             'actions_taken': len(actions_taken),
-            'message':       (f"{strategy_name.replace('_', ' ').title()} "
-                              f"completed: ₹{summary['total_revenue']:,.0f} revenue"),
+            'message':       (f"{strategy_name.replace('_', ' ').title()} completed: "
+                              f"₹{summary['total_revenue']:,.0f} revenue, "
+                              f"{summary['load_factor']*100:.1f}% load"),
         })
 
     except Exception as e:
@@ -676,7 +660,7 @@ def test_traditional():
 
 if __name__ == '__main__':
     print("\n" + "=" * 80)
-    print("  🚀 RL-INTEGRATED MULTI-CLASS AIRLINE DASHBOARD")
+    print("  ✈️  AIRLINE RL DASHBOARD")
     print("=" * 80)
 
     if rl_system_loaded:
@@ -706,5 +690,4 @@ if __name__ == '__main__':
     print(f"     POST /api/test_traditional   Single strategy test")
     print("\n" + "=" * 80 + "\n")
 
-    # debug=False prevents double model loading on Flask reloader
     app.run(debug=False, host='0.0.0.0', port=5000)

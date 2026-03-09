@@ -2,22 +2,14 @@
 Multi-Route, Multi-Class Airline Revenue Management Environment
 File: environment/airline_env.py
 
-REWARD FUNCTION — v3 (revenue-dominant)
-========================================
-ROOT CAUSE of negative RL improvement:
-  Old reward: bonuses (load factor, business fill, competitor) = up to ±30 pts/step
-              revenue signal                                   = only  ~6 pts/step
-  → Agent learned to fill seats cheaply, not maximise revenue
-  → rule_based beat RL because rule_based targets revenue directly
-
-New design:
-  Revenue = 90% of signal  (normalised per-route so ₹3k and ₹15k routes train identically)
-  Bonuses = 10% max        (small nudges, not decision-drivers)
-  Late-stage penalty only  (unsold seats at departure = real cost)
-
-Expected result after retraining:
-  +10-20% over rule_based after 1000 episodes
-  +15-25% after 3000 episodes
+REWARD FUNCTION — v4 (market-anchored, anti-underpricing)
+==========================================================
+FIXES applied:
+  1. Price floor: econ_min = q25 (removed *0.85 that caused race to bottom)
+  2. Revenue norm: anchored to COMPETITOR market average, not agent's own price
+  3. Occupancy bonus: gated on price ratio >= 0.90 (can't bonus cheap fills)
+  4. Underpricing penalty: explicit -reward when agent prices below 88% of market
+  5. Price ceiling: q75 * 1.25 (was 1.50, symmetry with floor improves exploration)
 """
 
 import numpy as np
@@ -36,7 +28,7 @@ class AirlineRevenueEnv(gym.Env):
     - Realistic demand curves with price elasticity
     - Competitor dynamics
     - Disruption modelling
-    - Revenue-dominant reward function
+    - Market-anchored revenue reward function (v4)
     """
 
     def __init__(self, route_stats_path="data/route_stats.pkl",
@@ -101,7 +93,7 @@ class AirlineRevenueEnv(gym.Env):
         self.disruption_probability = 0.05
         self.prev_action            = None
 
-        print(f"✓ Environment initialised")
+        print(f"✓ Environment initialised (v4 — market-anchored reward)")
         print(f"  Action space:  {self.action_space.n} joint pricing actions")
         print(f"  State space:   {self.observation_space.shape[0]} features")
         print(f"  Seats:         {self.total_seats} (E:{self.econ_seats_total} B:{self.bus_seats_total})")
@@ -139,22 +131,22 @@ class AirlineRevenueEnv(gym.Env):
         self.econ_price = float(np.mean(list(self.econ_competitors.values())))
         self.bus_price  = float(np.mean(list(self.bus_competitors.values())))
 
-        # Price bounds from calibration
+        # ── FIX 1: Price bounds — floor at q25 (no *0.85 discount) ──────
         econ_stats = econ.get("price_stats", {})
         bus_stats  = bus.get("price_stats",  {})
 
-        self.econ_min = float(econ_stats.get("q25", self.econ_price * 0.70) * 0.85)
-        self.econ_max = float(econ_stats.get("q75", self.econ_price * 1.50) * 1.50)
-        self.bus_min  = float(bus_stats.get( "q25", self.bus_price  * 0.70) * 0.85)
-        self.bus_max  = float(bus_stats.get( "q75", self.bus_price  * 1.50) * 1.50)
+        self.econ_min = float(econ_stats.get("q25", self.econ_price * 0.80))
+        self.econ_max = float(econ_stats.get("q75", self.econ_price * 1.25) * 1.25)
+        self.bus_min  = float(bus_stats.get( "q25", self.bus_price  * 0.80))
+        self.bus_max  = float(bus_stats.get( "q75", self.bus_price  * 1.25) * 1.25)
 
-        # ── Revenue normaliser (KEY for reward function) ──────────────────
-        # "Typical good step" for THIS route's price level.
-        # Makes reward scale identical across cheap and expensive routes.
-        # Econ: ~10% of seats booked per step | Bus: ~5%
+        # ── FIX 2: Revenue normaliser anchored to MARKET, not agent price ─
+        # Use competitor average so norm stays stable even if agent drops prices.
+        econ_market = float(np.mean(list(self.econ_competitors.values())))
+        bus_market  = float(np.mean(list(self.bus_competitors.values())))
         self._revenue_norm = max(
-            self.econ_seats_total * 0.10 * self.econ_price +
-            self.bus_seats_total  * 0.05 * self.bus_price,
+            self.econ_seats_total * 0.10 * econ_market +
+            self.bus_seats_total  * 0.05 * bus_market,
             5000.0
         )
 
@@ -251,22 +243,18 @@ class AirlineRevenueEnv(gym.Env):
         return self._get_state(), float(reward), terminated, truncated, info
 
     # =========================================================================
-    # REWARD FUNCTION  ← THE CORE FIX
+    # REWARD FUNCTION v4 — market-anchored, anti-underpricing
     # =========================================================================
     def _calculate_reward(self, econ_bookings, bus_bookings,
                           step_rev_econ, step_rev_bus):
         """
-        Revenue-dominant reward.
+        Revenue-dominant reward, market-anchored.
 
-        Signal budget per step (with typical bookings):
-        ─────────────────────────────────────────────
-        Revenue signal:   ~10 pts   (90% of total)
-        All bonuses max:  ~4.5 pts  (10% of total)
-        Late penalties:   ~7 pts    (last 7 days only)
-
-        Compare to OLD function:
-        Revenue:   ~6 pts
-        Bonuses:  ~24 pts  ← agent chased these instead
+        KEY CHANGES vs v3:
+          - Revenue norm uses market price (fixed), not agent's drifting price
+          - Occupancy bonuses gated on price ratio >= 0.90
+          - Explicit penalty when agent prices below 88% of market
+          - Business bonus also gated on price ratio
         """
 
         step_revenue = step_rev_econ + step_rev_bus
@@ -279,23 +267,37 @@ class AirlineRevenueEnv(gym.Env):
 
         econ_comp = float(np.mean(list(self.econ_competitors.values()))) if self.econ_competitors else self.econ_price
         bus_comp  = float(np.mean(list(self.bus_competitors.values())))  if self.bus_competitors  else self.bus_price
-        bus_ratio = self.bus_price / bus_comp if bus_comp > 0 else 1.0
 
-        # ── 2. Bonus: strong occupancy + revenue together (max +2) ────────
-        # Only fires when BOTH conditions are good — prevents filling cheaply
-        if load_factor >= 0.85 and step_revenue > 0.8 * self._revenue_norm:
+        econ_ratio = self.econ_price / econ_comp if econ_comp > 0 else 1.0
+        bus_ratio  = self.bus_price  / bus_comp  if bus_comp  > 0 else 1.0
+
+        # ── FIX 4: Underpricing penalty — active signal not to race to bottom
+        # Economy underpricing
+        if econ_ratio < 0.85:
+            reward -= 3.0   # severely underpriced vs market
+        elif econ_ratio < 0.92:
+            reward -= 1.0   # moderately underpriced
+
+        # Business underpricing
+        if bus_ratio < 0.85:
+            reward -= 2.0
+        elif bus_ratio < 0.92:
+            reward -= 0.8
+
+        # ── FIX 3: Occupancy bonus gated on price ratio ────────────────────
+        # ONLY bonus if BOTH load is good AND pricing is competitive (>= 90% of market)
+        if load_factor >= 0.85 and step_revenue > 0.8 * self._revenue_norm and econ_ratio >= 0.90:
             reward += 2.0
-        elif load_factor >= 0.70 and step_revenue > 0.5 * self._revenue_norm:
+        elif load_factor >= 0.70 and step_revenue > 0.5 * self._revenue_norm and econ_ratio >= 0.88:
             reward += 1.0
 
-        # ── 3. Bonus: business class health (max +1.5) ────────────────────
-        # Reward filling business at a decent price only
+        # ── 3. Bonus: business class health — gated on price ratio ────────
         if bus_load >= 0.70 and bus_ratio >= 0.85:
             reward += 1.5
         elif bus_load >= 0.50 and bus_ratio >= 0.80:
             reward += 0.5
 
-        # ── 4. Disruption nudge (max ±1 each class = ±2 total) ────────────
+        # ── 4. Disruption nudge ───────────────────────────────────────────
         if self.current_disruption == "competitor_cancel":
             if self.econ_price > econ_comp:              reward += 1.0
             if self.bus_price  > bus_comp:               reward += 1.0
@@ -309,13 +311,11 @@ class AirlineRevenueEnv(gym.Env):
             if self.bus_price  > bus_comp  * 1.05:       reward -= 1.0
 
         # ── 5. Late-stage empty-seat penalty (last 7 days only) ───────────
-        # Unsold seat at departure = ₹0 forever. Create urgency.
-        # Capped so it never overrides a good revenue step.
         if self.days_to_departure <= 7:
             if load_factor < 0.65:
-                reward -= (1.0 - load_factor) * 4.0      # max -4 pts
+                reward -= (1.0 - load_factor) * 4.0
             if bus_load < 0.50:
-                reward -= (1.0 - bus_load)    * 3.0      # max -3 pts
+                reward -= (1.0 - bus_load)    * 3.0
 
         elif self.days_to_departure <= 14:
             if bus_load    < 0.35:  reward -= 1.5
@@ -395,12 +395,16 @@ class AirlineRevenueEnv(gym.Env):
         for airline in list(self.econ_competitors):
             chg = np.random.normal(0, 0.02)
             self.econ_competitors[airline] = float(np.clip(
-                self.econ_competitors[airline] * (1 + chg), self.econ_min, self.econ_max
+                self.econ_competitors[airline] * (1 + chg),
+                self.econ_min * 0.9,
+                self.econ_max * 1.1
             ))
         for airline in list(self.bus_competitors):
             chg = np.random.normal(0, 0.015)
             self.bus_competitors[airline] = float(np.clip(
-                self.bus_competitors[airline] * (1 + chg), self.bus_min, self.bus_max
+                self.bus_competitors[airline] * (1 + chg),
+                self.bus_min * 0.9,
+                self.bus_max * 1.1
             ))
 
     def _trigger_disruption(self):
@@ -408,25 +412,17 @@ class AirlineRevenueEnv(gym.Env):
             self.disruption_duration -= 1
             if self.disruption_duration == 0:
                 self.current_disruption = "none"
-        elif random.random() < self.disruption_probability:
+            return
+
+        if random.random() < self.disruption_probability:
             self.current_disruption  = random.choice(self.disruption_types[1:])
-            self.disruption_duration = random.randint(1, 3)
+            self.disruption_duration = random.randint(1, 4)
+        else:
+            self.current_disruption = "none"
 
     # =========================================================================
-    # DISPLAY & SUMMARY
+    # UTILITIES
     # =========================================================================
-    def render(self, mode="human"):
-        load = (self.econ_sold + self.bus_sold) / self.total_seats
-        print(f"\n{'='*62}")
-        print(f"Route: {self.route}  |  Day {self.max_days - self.days_to_departure}/{self.max_days}")
-        print(f"{'='*62}")
-        print(f"Economy:  ₹{self.econ_price:>8,.0f}  |  {self.econ_sold}/{self.econ_seats_total} ({self.econ_sold/self.econ_seats_total*100:.1f}%)")
-        print(f"Business: ₹{self.bus_price:>8,.0f}  |  {self.bus_sold}/{self.bus_seats_total}  ({self.bus_sold/self.bus_seats_total*100:.1f}%)")
-        print(f"Load: {load*100:.1f}%   Revenue: ₹{self.total_revenue:,.0f}")
-        if self.current_disruption != "none":
-            print(f"⚠️  Disruption: {self.current_disruption} ({self.disruption_duration}d left)")
-        print(f"{'='*62}")
-
     def get_episode_summary(self):
         return {
             "route":            self.route,
@@ -441,13 +437,24 @@ class AirlineRevenueEnv(gym.Env):
             "history":          self.episode_history,
         }
 
+    def render(self, mode="human"):
+        load = (self.econ_sold + self.bus_sold) / self.total_seats
+        econ_comp = float(np.mean(list(self.econ_competitors.values()))) if self.econ_competitors else self.econ_price
+        bus_comp  = float(np.mean(list(self.bus_competitors.values())))  if self.bus_competitors  else self.bus_price
+        print(f"Day {self.max_days - self.days_to_departure:3d} | "
+              f"Route: {self.route} | "
+              f"E: ₹{self.econ_price:,.0f} (mkt ₹{econ_comp:,.0f}) | "
+              f"B: ₹{self.bus_price:,.0f} (mkt ₹{bus_comp:,.0f}) | "
+              f"Load: {load*100:.1f}% | "
+              f"Rev: ₹{self.total_revenue:,.0f}")
+
 
 # =============================================================================
 # QUICK TEST
 # =============================================================================
 if __name__ == "__main__":
     print("=" * 70)
-    print("  TESTING airline_env.py — revenue-dominant reward (v3)")
+    print("  TESTING airline_env.py — market-anchored reward (v4)")
     print("=" * 70)
 
     try:
@@ -457,13 +464,14 @@ if __name__ == "__main__":
         print(f"\nRoute:            {env.route}")
         print(f"Econ start price: ₹{env.econ_price:,.0f}")
         print(f"Bus  start price: ₹{env.bus_price:,.0f}")
-        print(f"Revenue norm:     ₹{env._revenue_norm:,.0f}  ← typical good step")
+        print(f"Econ floor/ceil:  ₹{env.econ_min:,.0f} / ₹{env.econ_max:,.0f}")
+        print(f"Revenue norm:     ₹{env._revenue_norm:,.0f}  ← market-anchored")
         print(f"State shape:      {state.shape}")
 
         total_reward = 0.0
         done = False
         while not done:
-            action = 7 if env.days_to_departure < 30 else 1
+            action = 7 if env.days_to_departure < 30 else 4
             state, reward, terminated, truncated, info = env.step(action)
             total_reward += reward
             done = terminated or truncated
@@ -475,7 +483,7 @@ if __name__ == "__main__":
         print(f"  Load:          {summary['load_factor']*100:.1f}%")
         print(f"  Economy load:  {summary['econ_load_factor']*100:.1f}%")
         print(f"  Business load: {summary['bus_load_factor']*100:.1f}%")
-        print(f"\n✅ Env test passed")
+        print(f"\n✅ Env v4 test passed")
 
     except FileNotFoundError as e:
         print(f"\n❌ {e}")
