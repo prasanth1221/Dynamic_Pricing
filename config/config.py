@@ -161,7 +161,7 @@ AGENT_CONFIG = {
 # TRAINING CONFIGURATION
 # =================================================
 TRAINING_CONFIG = {
-    'num_episodes':          6000,
+    'num_episodes':          10000,
     'max_steps_per_episode': 90,
 
     # Network updates
@@ -183,9 +183,9 @@ TRAINING_CONFIG = {
     'curriculum_learning': True,
 
     'curriculum_phases': [
-        {'end_episode': 1500, 'num_routes': 3},
-        {'end_episode': 3500, 'num_routes': 10},
-        {'end_episode': 6000, 'num_routes': None},
+        {'end_episode': 2000,  'num_routes': 3},
+        {'end_episode': 5000,  'num_routes': 10},
+        {'end_episode': 10000, 'num_routes': None},
     ],
 
     # Logging
