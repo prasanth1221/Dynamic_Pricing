@@ -1,37 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Multi-Class Airline Revenue Management with Reinforcement Learning">
     <title>Multi-Class Airline RL Dashboard</title>
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
 </head>
+
 <body>
     <div class="container">
-        
+
         <!-- HEADER -->
         <header>
-            <h1>✈️ Multi-Class Airline Revenue Management</h1>
-            <p class="subtitle">Deep Q-Network Agent | Joint Economy + Business Pricing</p>
-            <div class="route-badge">
-                <strong>Route:</strong> <span id="route-name">Loading...</span> | 
-                <strong>Days to Departure:</strong> <span id="days-departure">90</span> | 
-                <strong>Disruption:</strong> <span id="disruption-status">None</span>
+            <h1 style="font-weight: 300; letter-spacing: 2px;">AIRLINE <span
+                    style="font-weight: 700; color: var(--primary-color);">RL DASHBOARD</span></h1>
+            <p class="subtitle"
+                style="text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">
+                Deep Q-Network Agent | Joint Economy & Business Pricing</p>
+            <div class="route-badge"
+                style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); font-family: 'Inter', sans-serif;">
+                <span style="color: var(--primary-color);">Route:</span> <strong id="route-name"
+                    style="font-weight: 500;">Loading...</strong> |
+                <span style="color: var(--primary-color);">Days to Departure:</span> <strong id="days-departure"
+                    style="font-weight: 500;">90</strong> |
+                <span style="color: var(--primary-color);">Disruption:</span> <strong id="disruption-status"
+                    style="font-weight: 500;">None</strong>
             </div>
         </header>
 
         <!-- MAIN DASHBOARD GRID -->
         <div class="dashboard-grid">
-            
+
             <!-- LEFT PANEL - CONTROLS -->
             <div class="panel controls-panel">
                 <h2>🎮 Control Center</h2>
-                
+
                 <!-- NEW: Route Selector -->
                 <div class="route-selector-container">
                     <label class="route-selector-label" for="route-selector">
@@ -44,58 +57,49 @@
                         📊 30 routes available - scroll to view all
                     </p>
                 </div>
-                
+
                 <!-- Joint Pricing Actions -->
                 <div class="section">
                     <h3>💰 Joint Pricing Actions</h3>
                     <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 10px;">
                         Select pricing adjustments for both classes simultaneously
                     </p>
-                    
+
                     <div class="action-grid">
                         <!-- Row 1: Economy -10% -->
-                        <button class="action-btn decrease" onclick="takeAction(0)" 
-                                title="Economy ↓10%, Business ↓10%">
+                        <button class="action-btn decrease" onclick="takeAction(0)" title="Economy ↓10%, Business ↓10%">
                             E↓10%<br>B↓10%
                         </button>
-                        <button class="action-btn mixed" onclick="takeAction(1)" 
-                                title="Economy ↓10%, Business Hold">
+                        <button class="action-btn mixed" onclick="takeAction(1)" title="Economy ↓10%, Business Hold">
                             E↓10%<br>B→
                         </button>
-                        <button class="action-btn mixed" onclick="takeAction(2)" 
-                                title="Economy ↓10%, Business ↑10%">
+                        <button class="action-btn mixed" onclick="takeAction(2)" title="Economy ↓10%, Business ↑10%">
                             E↓10%<br>B↑10%
                         </button>
-                        
+
                         <!-- Row 2: Economy Hold -->
-                        <button class="action-btn mixed" onclick="takeAction(3)" 
-                                title="Economy Hold, Business ↓10%">
+                        <button class="action-btn mixed" onclick="takeAction(3)" title="Economy Hold, Business ↓10%">
                             E→<br>B↓10%
                         </button>
-                        <button class="action-btn hold" onclick="takeAction(4)" 
-                                title="Economy Hold, Business Hold">
+                        <button class="action-btn hold" onclick="takeAction(4)" title="Economy Hold, Business Hold">
                             E→<br>B→
                         </button>
-                        <button class="action-btn mixed" onclick="takeAction(5)" 
-                                title="Economy Hold, Business ↑10%">
+                        <button class="action-btn mixed" onclick="takeAction(5)" title="Economy Hold, Business ↑10%">
                             E→<br>B↑10%
                         </button>
-                        
+
                         <!-- Row 3: Economy +10% -->
-                        <button class="action-btn mixed" onclick="takeAction(6)" 
-                                title="Economy ↑10%, Business ↓10%">
+                        <button class="action-btn mixed" onclick="takeAction(6)" title="Economy ↑10%, Business ↓10%">
                             E↑10%<br>B↓10%
                         </button>
-                        <button class="action-btn mixed" onclick="takeAction(7)" 
-                                title="Economy ↑10%, Business Hold">
+                        <button class="action-btn mixed" onclick="takeAction(7)" title="Economy ↑10%, Business Hold">
                             E↑10%<br>B→
                         </button>
-                        <button class="action-btn increase" onclick="takeAction(8)" 
-                                title="Economy ↑10%, Business ↑10%">
+                        <button class="action-btn increase" onclick="takeAction(8)" title="Economy ↑10%, Business ↑10%">
                             E↑10%<br>B↑10%
                         </button>
                     </div>
-                    
+
                     <div class="action-legend">
                         <span class="legend-item"><strong>E</strong> = Economy</span>
                         <span class="legend-item"><strong>B</strong> = Business</span>
@@ -152,7 +156,7 @@
             <!-- CENTER PANEL - METRICS & CHARTS -->
             <div class="panel metrics-panel">
                 <h2>📊 Live Performance Metrics</h2>
-                
+
                 <!-- Economy Class Section -->
                 <div class="class-section economy-section">
                     <h3>💺 Economy Class</h3>
@@ -177,7 +181,7 @@
                             <div class="metric-value" id="econ-revenue">₹0</div>
                         </div>
                     </div>
-                    
+
                     <div class="competitors-mini">
                         <h4>🏢 Competitor Prices</h4>
                         <div id="econ-competitors" class="competitor-grid-mini"></div>
@@ -208,7 +212,7 @@
                             <div class="metric-value" id="bus-revenue">₹0</div>
                         </div>
                     </div>
-                    
+
                     <div class="competitors-mini">
                         <h4>🏢 Competitor Prices</h4>
                         <div id="bus-competitors" class="competitor-grid-mini"></div>
@@ -243,12 +247,12 @@
                         <h4>📈 Economy Price History</h4>
                         <canvas id="econPriceChart"></canvas>
                     </div>
-                    
+
                     <div class="chart-box">
                         <h4>📈 Business Price History</h4>
                         <canvas id="busPriceChart"></canvas>
                     </div>
-                    
+
                     <div class="chart-box wide">
                         <h4>💰 Daily Revenue (Economy vs Business)</h4>
                         <canvas id="revenueChart"></canvas>
@@ -331,7 +335,7 @@
                 ✕ Close
             </button>
         </div>
-        
+
         <div class="comparison-controls">
             <button class="comparison-btn run-comparison-btn" id="run-comparison-btn" onclick="runComparison()">
                 🚀 Run Full Comparison (10 episodes each)
@@ -340,7 +344,7 @@
                 ⏱️ This will take 1-2 minutes. Results will show which strategy performs best.
             </div>
         </div>
-        
+
         <!-- Loading Spinner -->
         <div class="loading-spinner" id="loading-spinner">
             <div class="spinner"></div>
@@ -349,7 +353,7 @@
                 <small>Evaluating 10 episodes per strategy</small>
             </p>
         </div>
-        
+
         <!-- Results Container -->
         <div id="comparison-results" style="display: none;">
             <!-- Summary Section -->
@@ -361,12 +365,12 @@
                     <!-- Populated by JavaScript -->
                 </div>
             </div>
-            
+
             <!-- Strategy Cards Grid -->
             <div class="comparison-grid" id="strategy-cards">
                 <!-- Populated by JavaScript -->
             </div>
-            
+
             <!-- Comparison Chart -->
             <div class="comparison-chart-container">
                 <h3 style="color: #fff; margin-bottom: 15px;">📈 Revenue Comparison</h3>
@@ -377,10 +381,11 @@
 
     <!-- JAVASCRIPT -->
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    
+
     <script>
         console.log('%c🚀 Multi-Class Airline RL Dashboard Loaded', 'color: #10b981; font-size: 16px; font-weight: bold;');
         console.log('%c📊 With Route Selector & Daily Revenue Tracking', 'color: #3b82f6; font-size: 12px;');
     </script>
 </body>
+
 </html>

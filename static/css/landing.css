@@ -9,21 +9,24 @@
 }
 
 :root {
-    --primary: #667eea;
-    --secondary: #764ba2;
-    --accent: #f093fb;
-    --success: #4ade80;
-    --warning: #fbbf24;
-    --danger: #f87171;
-    --dark: #0f172a;
-    --card: #1e293b;
+    --primary: #06b6d4;
+    --secondary: #3b82f6;
+    --accent: #8b5cf6;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --dark: #020617;
+    --card: rgba(10, 15, 25, 0.70);
+    --border-color: rgba(255, 255, 255, 0.08);
     --text: #f8fafc;
     --text-muted: #94a3b8;
+    --glow: 0 0 25px rgba(6, 182, 212, 0.4);
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    font-family: 'Outfit', 'Inter', sans-serif;
+    background: #020617 url('../images/aerospace_earth_bg_landing.png') no-repeat center center fixed;
+    background-size: cover;
     color: var(--text);
     line-height: 1.6;
     overflow-x: hidden;
@@ -36,12 +39,9 @@ body {
     align-items: center;
     justify-content: center;
     padding: 60px 20px;
-    background: 
-        radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.15) 0%, transparent 50%),
-        linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     position: relative;
     overflow: hidden;
+    background: transparent;
 }
 
 .hero-section::before {
@@ -136,7 +136,7 @@ body {
 /* ==================== WHY RL SECTION ==================== */
 .why-rl-section {
     padding: 120px 20px;
-    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    background: linear-gradient(180deg, rgba(2, 6, 23, 0) 0%, rgba(10, 15, 25, 0.8) 100%);
 }
 
 .section-container {
@@ -174,28 +174,29 @@ body {
 }
 
 .comparison-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: var(--card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
     border-radius: 25px;
     padding: 45px;
-    transition: all 0.4s ease;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .comparison-card:hover {
     border-color: var(--primary);
     transform: translateY(-8px);
-    box-shadow: 0 25px 50px rgba(102, 126, 234, 0.3);
-    background: rgba(255, 255, 255, 0.05);
+    box-shadow: var(--glow);
 }
 
 .comparison-card.rl-card {
-    border-color: var(--success);
-    background: rgba(74, 222, 128, 0.05);
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.05);
 }
 
 .comparison-card.rl-card:hover {
     border-color: var(--success);
-    box-shadow: 0 25px 50px rgba(74, 222, 128, 0.3);
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.3);
 }
 
 .comparison-card h3 {
@@ -280,7 +281,7 @@ body {
 /* ==================== ALGORITHMS SECTION ==================== */
 .algorithms-section {
     padding: 120px 20px;
-    background: #0f172a;
+    background: rgba(10, 15, 25, 0.8);
 }
 
 .algo-grid {
@@ -291,18 +292,20 @@ body {
 }
 
 .algo-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: var(--card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
     border-radius: 20px;
     padding: 35px;
-    transition: all 0.3s ease;
+    transition: all 0.4s ease;
     position: relative;
 }
 
 .algo-card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-8px);
     border-color: var(--primary);
-    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.25);
+    box-shadow: 0 15px 40px rgba(99, 102, 241, 0.3);
 }
 
 .algo-card.highlighted {
@@ -357,7 +360,7 @@ body {
 /* ==================== ARCHITECTURE SECTION ==================== */
 .architecture-section {
     padding: 120px 20px;
-    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    background: linear-gradient(180deg, rgba(10, 15, 25, 0.8) 0%, rgba(10, 15, 25, 0.95) 100%);
 }
 
 .architecture-diagram {
@@ -447,7 +450,7 @@ body {
 
 .performance-section {
     padding: 120px 20px;
-    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    background: linear-gradient(180deg, rgba(10, 15, 25, 0.95) 0%, rgba(10, 15, 25, 0.9) 100%);
 }
 
 .performance-section .section-container {
@@ -458,12 +461,14 @@ body {
 
 .performance-layout {
     display: flex;
-    justify-content: center; /* center summary card */
+    justify-content: center;
+    /* center summary card */
     margin-top: 40px;
 }
 
 .training-summary {
-    position: relative; /* anchor icon */
+    position: relative;
+    /* anchor icon */
 
     max-width: 880px;
     width: 100%;
@@ -471,19 +476,13 @@ body {
     padding: 45px 50px;
     border-radius: 28px;
 
-    background: linear-gradient(
-        135deg,
-        rgba(102, 126, 234, 0.18),
-        rgba(118, 75, 162, 0.18)
-    );
-
-    border: 2px solid rgba(102, 126, 234, 0.35);
-
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow:
-        0 25px 60px rgba(102, 126, 234, 0.25),
+        0 25px 60px rgba(99, 102, 241, 0.25),
         inset 0 0 30px rgba(255, 255, 255, 0.05);
-
-    backdrop-filter: blur(12px);
 }
 
 .training-summary h3 {
@@ -711,6 +710,7 @@ body {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -722,6 +722,7 @@ body {
         opacity: 0;
         transform: translateX(30px);
     }
+
     to {
         opacity: 1;
         transform: translateX(0);
@@ -735,11 +736,11 @@ body {
         gap: 50px;
         text-align: center;
     }
-    
+
     .hero-content h1 {
         font-size: 3rem;
     }
-    
+
     .hero-visual {
         height: 400px;
 
@@ -750,20 +751,20 @@ body {
     .hero-content h1 {
         font-size: 2.5rem;
     }
-    
+
     .section-title {
         font-size: 2.2rem;
     }
-    
+
     .comparison-grid {
         grid-template-columns: 1fr;
         gap: 30px;
     }
-    
+
     .arch-flow {
         flex-direction: column;
     }
-    
+
     .arch-arrow {
         transform: rotate(90deg);
     }
