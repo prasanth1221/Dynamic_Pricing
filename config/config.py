@@ -50,8 +50,8 @@ ENV_CONFIG = {
     'fixed_route':      None,
 
     # Demand modeling — aligned with airline_env.py hardcoded values
-    'econ_base_demand':      0.12,   # 12% of capacity per day
-    'bus_base_demand':       0.06,   # FIX: was 0.08, env uses 0.12
+    'econ_base_demand':      0.20,   # 12% of capacity per day
+    'bus_base_demand':       0.10,   # FIX: was 0.08, env uses 0.12
     'econ_price_elasticity': 2.5,
     'bus_price_elasticity':  1.2,
 
@@ -161,7 +161,7 @@ AGENT_CONFIG = {
 # TRAINING CONFIGURATION
 # =================================================
 TRAINING_CONFIG = {
-    'num_episodes':          10000,
+    'num_episodes':          6000,
     'max_steps_per_episode': 90,
 
     # Network updates

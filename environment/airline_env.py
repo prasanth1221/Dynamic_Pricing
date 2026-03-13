@@ -83,8 +83,8 @@ class AirlineRevenueEnv(gym.Env):
         )
 
         # ── Demand parameters ─────────────────────────────────────────────
-        self.econ_base_demand = 0.12
-        self.bus_base_demand  = 0.06   # business books at lower volume, earlier
+        self.econ_base_demand = 0.20
+        self.bus_base_demand  = 0.10  # business books at lower volume, earlier
         self.econ_price_elasticity = 2.5    # leisure: price sensitive
         self.bus_price_elasticity  = 1.2    # corporate: less sensitive
 
@@ -186,8 +186,8 @@ class AirlineRevenueEnv(gym.Env):
         econ_available = self.econ_seats_total - self.econ_sold
         bus_available  = self.bus_seats_total  - self.bus_sold
 
-        expected_econ = econ_demand * self.econ_seats_total * 0.011
-        expected_bus  = bus_demand  * self.bus_seats_total  * 0.009
+        expected_econ = econ_demand * self.econ_seats_total * 0.055
+        expected_bus  = bus_demand  * self.bus_seats_total  * 0.065
 
         econ_bookings = int(min(np.random.poisson(max(expected_econ, 0)), econ_available))
         bus_bookings  = int(min(np.random.poisson(max(expected_bus,  0)), bus_available))
