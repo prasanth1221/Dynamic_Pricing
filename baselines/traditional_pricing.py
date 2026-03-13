@@ -465,11 +465,8 @@ def compare_all_strategies(env, rl_agent=None, num_episodes: int = 10,
                   f"{trophy}")
         print("=" * 80)
 
-        # ── RL vs best-traditional improvement ───────────────────────────
-        # NOTE: RL uses max_revenue (best episode), traditional uses avg_revenue
-        # This guarantees positive improvement for demo purposes.
         if "rl_agent" in results:
-            rl_rev     = results["rl_agent"]["max_revenue"]      # ← RL best episode
+            rl_rev   = results["rl_agent"]["avg_revenue"]      # ← RL best episode
             trad_names = [k for k in results if k != "rl_agent"]
             best_name  = max(trad_names, key=lambda k: results[k]["avg_revenue"])
             best_rev   = results[best_name]["avg_revenue"]       # ← traditional average

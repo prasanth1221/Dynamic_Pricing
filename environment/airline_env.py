@@ -83,8 +83,8 @@ class AirlineRevenueEnv(gym.Env):
         )
 
         # ── Demand parameters ─────────────────────────────────────────────
-        self.econ_base_demand      = 0.12   # 12% of capacity/day baseline
-        self.bus_base_demand       = 0.12
+        self.econ_base_demand = 0.12
+        self.bus_base_demand  = 0.06   # business books at lower volume, earlier
         self.econ_price_elasticity = 2.5    # leisure: price sensitive
         self.bus_price_elasticity  = 1.2    # corporate: less sensitive
 
@@ -186,8 +186,8 @@ class AirlineRevenueEnv(gym.Env):
         econ_available = self.econ_seats_total - self.econ_sold
         bus_available  = self.bus_seats_total  - self.bus_sold
 
-        expected_econ = econ_demand * self.econ_seats_total * 0.15
-        expected_bus  = bus_demand  * self.bus_seats_total  * 0.10
+        expected_econ = econ_demand * self.econ_seats_total * 0.011
+        expected_bus  = bus_demand  * self.bus_seats_total  * 0.009
 
         econ_bookings = int(min(np.random.poisson(max(expected_econ, 0)), econ_available))
         bus_bookings  = int(min(np.random.poisson(max(expected_bus,  0)), bus_available))
@@ -345,14 +345,14 @@ class AirlineRevenueEnv(gym.Env):
         t_cos = float(np.cos(2 * np.pi * self.current_step / self.max_days))
 
         state = np.concatenate([
-            [self.econ_price, self.bus_price],
-            [econ_comp,       bus_comp],
-            [econ_remaining,  bus_remaining],
-            [days_norm],
-            route_enc,
-            [disruption, t_sin, t_cos],
-            [econ_ratio, bus_ratio],
-        ])
+                [self.econ_price / self.econ_max, self.bus_price / self.bus_max],
+                [econ_comp / self.econ_max,       bus_comp / self.bus_max],
+                [econ_remaining, bus_remaining],
+                [days_norm],
+                route_enc,
+                [disruption, t_sin, t_cos],
+                [econ_ratio, bus_ratio],
+            ])
         return state.astype(np.float32)
 
     # =========================================================================
@@ -392,19 +392,30 @@ class AirlineRevenueEnv(gym.Env):
     # MARKET DYNAMICS
     # =========================================================================
     def _update_competitor_prices(self):
+        econ_market = float(np.mean(list(self.econ_competitors.values()))) if self.econ_competitors else self.econ_price
+        bus_market  = float(np.mean(list(self.bus_competitors.values())))  if self.bus_competitors  else self.bus_price
+
         for airline in list(self.econ_competitors):
             chg = np.random.normal(0, 0.02)
+            # Competitors react if agent significantly undercuts market
+            if self.econ_price < econ_market * 0.88:
+                chg -= 0.01   # competitor also lowers price slightly
+            elif self.econ_price > econ_market * 1.12:
+                chg += 0.01   # competitor raises when agent raises
             self.econ_competitors[airline] = float(np.clip(
                 self.econ_competitors[airline] * (1 + chg),
-                self.econ_min * 0.9,
-                self.econ_max * 1.1
+                self.econ_min * 0.8, self.econ_max * 1.2
             ))
+
         for airline in list(self.bus_competitors):
-            chg = np.random.normal(0, 0.015)
+            chg = np.random.normal(0, 0.02)
+            if self.bus_price < bus_market * 0.88:
+                chg -= 0.01
+            elif self.bus_price > bus_market * 1.12:
+                chg += 0.01
             self.bus_competitors[airline] = float(np.clip(
                 self.bus_competitors[airline] * (1 + chg),
-                self.bus_min * 0.9,
-                self.bus_max * 1.1
+                self.bus_min * 0.8, self.bus_max * 1.2
             ))
 
     def _trigger_disruption(self):

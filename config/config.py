@@ -51,7 +51,7 @@ ENV_CONFIG = {
 
     # Demand modeling — aligned with airline_env.py hardcoded values
     'econ_base_demand':      0.12,   # 12% of capacity per day
-    'bus_base_demand':       0.12,   # FIX: was 0.08, env uses 0.12
+    'bus_base_demand':       0.06,   # FIX: was 0.08, env uses 0.12
     'econ_price_elasticity': 2.5,
     'bus_price_elasticity':  1.2,
 
@@ -183,9 +183,9 @@ TRAINING_CONFIG = {
     'curriculum_learning': True,
 
     'curriculum_phases': [
-        {'end_episode': 2000,  'num_routes': 3},
-        {'end_episode': 5000,  'num_routes': 10},
-        {'end_episode': 10000, 'num_routes': None},
+        {'end_episode': 3000,  'num_routes': 3},
+        {'end_episode': 6000,  'num_routes': 6},
+        {'end_episode': 10000, 'num_routes': 12},
     ],
 
     # Logging
