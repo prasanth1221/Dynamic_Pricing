@@ -237,6 +237,65 @@ class AirlineRevenueEnv(gym.Env):
             "bus_demand":    bus_demand,
         }
 
+        # ── Reward component breakdown (dashboard display only) ───────────
+        # Does NOT affect reward value. Mirrors _calculate_reward logic exactly
+        # so the breakdown shown on the dashboard is always accurate.
+        _ec  = float(np.mean(list(self.econ_competitors.values()))) if self.econ_competitors else self.econ_price
+        _bc  = float(np.mean(list(self.bus_competitors.values())))  if self.bus_competitors  else self.bus_price
+        _er  = self.econ_price / _ec if _ec > 0 else 1.0
+        _br  = self.bus_price  / _bc if _bc > 0 else 1.0
+        _lf  = (self.econ_sold + self.bus_sold) / self.total_seats
+        _bl  = self.bus_sold / self.bus_seats_total
+        _sr  = step_rev_econ + step_rev_bus
+
+        _rev_comp = round((_sr / self._revenue_norm) * 10.0, 3)
+
+        _undp = 0.0
+        if _er < 0.85:   _undp += 3.0
+        elif _er < 0.92: _undp += 1.0
+        if _br < 0.85:   _undp += 2.0
+        elif _br < 0.92: _undp += 0.8
+
+        _occ = 0.0
+        if _lf >= 0.85 and _sr > 0.8 * self._revenue_norm and _er >= 0.90: _occ += 2.0
+        elif _lf >= 0.70 and _sr > 0.5 * self._revenue_norm and _er >= 0.88: _occ += 1.0
+        if _bl >= 0.70 and _br >= 0.85:  _occ += 1.5
+        elif _bl >= 0.50 and _br >= 0.80: _occ += 0.5
+
+        _disr = 0.0
+        if self.current_disruption == "competitor_cancel":
+            if self.econ_price > _ec:        _disr += 1.0
+            if self.bus_price  > _bc:        _disr += 1.0
+            if self.econ_price < _ec * 0.95: _disr -= 1.0
+            if self.bus_price  < _bc * 0.95: _disr -= 1.0
+        elif self.current_disruption in ["weather", "pilot_strike"]:
+            if self.econ_price < _ec:        _disr += 1.0
+            if self.bus_price  < _bc:        _disr += 1.0
+            if self.econ_price > _ec * 1.05: _disr -= 1.0
+            if self.bus_price  > _bc * 1.05: _disr -= 1.0
+
+        _late = 0.0
+        if self.days_to_departure <= 7:
+            if _lf < 0.65: _late += (1.0 - _lf) * 4.0
+            if _bl < 0.50: _late += (1.0 - _bl) * 3.0
+        elif self.days_to_departure <= 14:
+            if _bl < 0.35: _late += 1.5
+            if _lf < 0.50: _late += 1.0
+
+        _inact = 0.0
+        if (self.prev_action is not None and action == self.prev_action == 4):
+            if _lf < 0.40 and self.days_to_departure < 30:
+                _inact = 0.5
+
+        info['reward_components'] = {
+            'revenue':      _rev_comp,
+            'occupancy':    round(_occ,    3),
+            'underpricing': round(-_undp,  3),
+            'disruption':   round(_disr,   3),
+            'late_penalty': round(-_late,  3),
+            'inaction':     round(-_inact, 3),
+        }
+
         self.episode_history.append(info.copy())
         self.prev_action = action
 

@@ -259,6 +259,7 @@ def take_action():
             'new_econ_price': float(info['econ_price']),
             'new_bus_price':  float(info['bus_price']),
             'done':           bool(done),
+            'reward_components': info.get('reward_components', {}),
             'message': (f"Action: {action_names[action]} | "
                         f"Sold {info['econ_bookings']}E + {info['bus_bookings']}B | "
                         f"Reward: {reward:.1f}"),

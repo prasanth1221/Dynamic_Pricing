@@ -311,6 +311,96 @@
                         </div>
                     </div>
                 </div>
+                <!-- ═══════════════════════════════════════════════════════
+                     REWARD BREAKDOWN PANEL
+                     Paste this block inside the log-panel div,
+                     RIGHT AFTER the closing </div> of the Agent Status section
+                     and BEFORE the closing </div> of the log-panel itself.
+                     ═══════════════════════════════════════════════════════ -->
+
+                <!-- Reward Breakdown -->
+                <div class="section" style="margin-top: 20px;">
+                    <h3>⚡ Reward Breakdown</h3>
+                    <div class="reward-breakdown-box">
+
+                        <!-- Total reward header -->
+                        <div class="rbd-header">
+                            <span class="rbd-label">Last Action Total</span>
+                            <span class="rbd-total" id="rbd-total">+0.00</span>
+                        </div>
+
+                        <!-- Revenue component -->
+                        <div class="rbd-row">
+                            <div class="rbd-row-top">
+                                <span class="rbd-name">💰 Revenue</span>
+                                <span class="rbd-value positive" id="rbd-revenue">+0.00</span>
+                            </div>
+                            <div class="rbd-track">
+                                <div class="rbd-bar rbd-bar-revenue" id="rbd-bar-revenue"></div>
+                            </div>
+                        </div>
+
+                        <!-- Occupancy bonus -->
+                        <div class="rbd-row">
+                            <div class="rbd-row-top">
+                                <span class="rbd-name">🎯 Occupancy Bonus</span>
+                                <span class="rbd-value positive" id="rbd-occupancy">+0.00</span>
+                            </div>
+                            <div class="rbd-track">
+                                <div class="rbd-bar rbd-bar-occupancy" id="rbd-bar-occupancy"></div>
+                            </div>
+                        </div>
+
+                        <!-- Underpricing penalty -->
+                        <div class="rbd-row">
+                            <div class="rbd-row-top">
+                                <span class="rbd-name">📉 Underpricing Penalty</span>
+                                <span class="rbd-value negative" id="rbd-underpricing">0.00</span>
+                            </div>
+                            <div class="rbd-track">
+                                <div class="rbd-bar rbd-bar-penalty" id="rbd-bar-underpricing"></div>
+                            </div>
+                        </div>
+
+                        <!-- Late seat penalty -->
+                        <div class="rbd-row">
+                            <div class="rbd-row-top">
+                                <span class="rbd-name">⏰ Late Seat Penalty</span>
+                                <span class="rbd-value negative" id="rbd-late">0.00</span>
+                            </div>
+                            <div class="rbd-track">
+                                <div class="rbd-bar rbd-bar-penalty" id="rbd-bar-late"></div>
+                            </div>
+                        </div>
+
+                        <!-- Inaction penalty -->
+                        <div class="rbd-row">
+                            <div class="rbd-row-top">
+                                <span class="rbd-name">😴 Inaction Penalty</span>
+                                <span class="rbd-value negative" id="rbd-inaction">0.00</span>
+                            </div>
+                            <div class="rbd-track">
+                                <div class="rbd-bar rbd-bar-penalty" id="rbd-bar-inaction"></div>
+                            </div>
+                        </div>
+
+                        <!-- Divider -->
+                        <div class="rbd-divider"></div>
+
+                        <!-- Cumulative reward this session -->
+                        <div class="rbd-session-row">
+                            <span style="color: var(--text-muted); font-size: 0.78rem;">Session Total Reward</span>
+                            <span id="rbd-session-total"
+                                style="font-weight: 700; font-size: 0.9rem; color: var(--success-color);">0.00</span>
+                        </div>
+
+                        <!-- Waiting state (shown before first action) -->
+                        <div class="rbd-waiting" id="rbd-waiting">
+                            Take an action to see reward breakdown
+                        </div>
+
+                    </div>
+                </div>
             </div>
         </div>
     </div>

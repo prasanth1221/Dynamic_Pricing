@@ -933,4 +933,144 @@ window.comparisonFunctions = {
     testTraditionalStrategy
 };
 
+// ============================================================================
+// REWARD BREAKDOWN PANEL
+// Append this entire block to the END of static/js/dashboard.js
+// ============================================================================
+
+// Session reward accumulator
+let sessionTotalReward = 0;
+
+function updateRewardBreakdown(data) {
+    // data = full response from /api/action
+
+    const reward     = data.reward     || 0;
+    const components = data.reward_components || {};
+
+    // Hide waiting message, show content
+    const waiting = document.getElementById('rbd-waiting');
+    if (waiting) waiting.style.display = 'none';
+
+    // Accumulate session total
+    sessionTotalReward += reward;
+
+    // ── Total reward ────────────────────────────────────────────────────────
+    const totalEl = document.getElementById('rbd-total');
+    if (totalEl) {
+        const sign = reward >= 0 ? '+' : '';
+        totalEl.textContent = sign + reward.toFixed(2);
+        totalEl.className   = 'rbd-total' + (reward < 0 ? ' negative-total' : '');
+    }
+
+    // ── Helper to update one row ─────────────────────────────────────────────
+    function setRow(id, barId, value, maxAbs) {
+        const valEl = document.getElementById(id);
+        const barEl = document.getElementById(barId);
+        if (!valEl || !barEl) return;
+
+        const sign    = value > 0 ? '+' : '';
+        valEl.textContent = sign + value.toFixed(2);
+
+        // Colour class
+        valEl.className = 'rbd-value ' +
+            (value > 0.001 ? 'positive' : value < -0.001 ? 'negative' : 'zero');
+
+        // Bar width — proportional to magnitude, capped at 100%
+        const pct = Math.min(100, (Math.abs(value) / maxAbs) * 100);
+        barEl.style.width = pct + '%';
+    }
+
+    // Max normaliser for bar widths (keeps bars proportional across components)
+    const rev      = components.revenue      || 0;
+    const occ      = components.occupancy    || 0;
+    const undp     = components.underpricing || 0;   // already negative
+    const latep    = components.late_penalty || 0;   // already negative
+    const inact    = components.inaction     || 0;   // already negative
+
+    // Biggest absolute value drives the 100% bar
+    const maxAbs = Math.max(
+        Math.abs(rev), Math.abs(occ),
+        Math.abs(undp), Math.abs(latep), Math.abs(inact),
+        0.1   // floor so we never divide by 0
+    );
+
+    setRow('rbd-revenue',      'rbd-bar-revenue',      rev,   maxAbs);
+    setRow('rbd-occupancy',    'rbd-bar-occupancy',    occ,   maxAbs);
+    setRow('rbd-underpricing', 'rbd-bar-underpricing', undp,  maxAbs);
+    setRow('rbd-late',         'rbd-bar-late',         latep, maxAbs);
+    setRow('rbd-inaction',     'rbd-bar-inaction',     inact, maxAbs);
+
+    // ── Session total ────────────────────────────────────────────────────────
+    const sessEl = document.getElementById('rbd-session-total');
+    if (sessEl) {
+        const sign = sessionTotalReward >= 0 ? '+' : '';
+        sessEl.textContent  = sign + sessionTotalReward.toFixed(2);
+        sessEl.style.color  = sessionTotalReward >= 0
+            ? 'var(--success-color)' : 'var(--danger-color)';
+    }
+}
+
+// ── Reset session total when simulation resets ───────────────────────────────
+const _origResetSimulation = typeof resetSimulation !== 'undefined' ? resetSimulation : null;
+if (_origResetSimulation) {
+    resetSimulation = async function() {
+        sessionTotalReward = 0;
+        const sessEl = document.getElementById('rbd-session-total');
+        if (sessEl) { sessEl.textContent = '0.00'; sessEl.style.color = 'var(--success-color)'; }
+
+        // Reset all bars and values to zero
+        ['rbd-revenue','rbd-occupancy','rbd-underpricing','rbd-late','rbd-inaction'].forEach(id => {
+            const v = document.getElementById(id);
+            const b = document.getElementById('rbd-bar-' + id.replace('rbd-',''));
+            if (v) { v.textContent = '0.00'; v.className = 'rbd-value zero'; }
+            if (b) b.style.width = '0%';
+        });
+
+        const totalEl = document.getElementById('rbd-total');
+        if (totalEl) { totalEl.textContent = '+0.00'; totalEl.className = 'rbd-total'; }
+
+        const waiting = document.getElementById('rbd-waiting');
+        if (waiting) waiting.style.display = 'block';
+
+        await _origResetSimulation();
+    };
+}
+
+// ── Hook into takeAction to receive components ───────────────────────────────
+// takeAction already exists in dashboard.js — we wrap it here.
+// The existing wrapper from opportunity_cost.js (if added) chains correctly
+// because each wrapper calls the previous version.
+const _rbd_prevTakeAction = typeof takeAction !== 'undefined' ? takeAction : null;
+if (_rbd_prevTakeAction) {
+    takeAction = async function(actionId) {
+        try {
+            // Re-implement the fetch so we can intercept the raw response
+            // before the original function discards reward_components.
+            const response = await fetch('/api/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: actionId })
+            });
+            const data = await response.json();
+
+            if (data.success && data.reward_components) {
+                updateRewardBreakdown(data);
+            }
+
+            // Still call the original so all existing UI updates happen
+            await _rbd_prevTakeAction(actionId);
+
+        } catch (err) {
+            console.error('Reward breakdown error:', err);
+            await _rbd_prevTakeAction(actionId);
+        }
+    };
+}
+
+// ── Show waiting state on load ───────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const waiting = document.getElementById('rbd-waiting');
+    if (waiting) waiting.style.display = 'block';
+});
+
 console.log('✅ Comparison panel functionality loaded');

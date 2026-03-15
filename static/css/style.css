@@ -1326,3 +1326,125 @@ button:disabled {
         transform: rotate(360deg);
     }
 }
+/* ============================================================================
+   REWARD BREAKDOWN PANEL
+   Append this to the END of static/css/style.css
+   Uses only existing CSS variables — no new colours introduced
+   ============================================================================ */
+
+.reward-breakdown-box {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+/* Header row — total reward */
+.rbd-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.rbd-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rbd-total {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--success-color);
+    transition: color 0.3s ease;
+}
+
+.rbd-total.negative-total {
+    color: var(--danger-color);
+}
+
+/* Each component row */
+.rbd-row {
+    margin-bottom: 10px;
+}
+
+.rbd-row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.rbd-name {
+    font-size: 0.80rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.rbd-value {
+    font-size: 0.82rem;
+    font-weight: 700;
+    min-width: 48px;
+    text-align: right;
+}
+
+.rbd-value.positive { color: var(--success-color); }
+.rbd-value.negative { color: var(--danger-color);  }
+.rbd-value.zero     { color: var(--text-muted);    }
+
+/* Progress track */
+.rbd-track {
+    height: 5px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+/* Bars */
+.rbd-bar {
+    height: 100%;
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rbd-bar-revenue {
+    background: linear-gradient(90deg, var(--success-color), #34d399);
+}
+
+.rbd-bar-occupancy {
+    background: linear-gradient(90deg, var(--primary-color), #22d3ee);
+}
+
+.rbd-bar-penalty {
+    background: linear-gradient(90deg, var(--danger-color), #f87171);
+}
+
+/* Divider */
+.rbd-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 10px 0;
+}
+
+/* Session total row */
+.rbd-session-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Waiting placeholder */
+.rbd-waiting {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 6px 0 2px;
+    font-style: italic;
+    display: none;
+}
