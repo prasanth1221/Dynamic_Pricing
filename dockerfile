@@ -16,9 +16,11 @@ WORKDIR /app
 # Copy only requirements first (better caching)
 COPY requirements.txt .
 
-# Upgrade pip and install all dependencies
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+# Install uv
+RUN pip install --no-cache-dir uv
+
+# Use uv to install dependencies (blazing fast)
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy full project
 COPY . .
