@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  dynamic-pricing:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: dynamic_pricing_app
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persist trained models and data between runs
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./results:/app/results
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

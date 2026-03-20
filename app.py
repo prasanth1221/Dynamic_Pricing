@@ -691,4 +691,4 @@ if __name__ == '__main__':
     print(f"     POST /api/test_traditional   Single strategy test")
     print("\n" + "=" * 80 + "\n")
 
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=8080)

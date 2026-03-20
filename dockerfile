@@ -1,4 +1,4 @@
-# Base image that matches your local Python exactly
+# Base image
 FROM python:3.10.11-slim
 
 # Prevents Python from writing .pyc files & enables clean logs
@@ -16,16 +16,28 @@ WORKDIR /app
 # Copy only requirements first (better caching)
 COPY requirements.txt .
 
-# Upgrade pip and install dependencies
+# Upgrade pip and install all dependencies
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 # Copy full project
 COPY . .
 
-# Expose Flask port
-EXPOSE 5000
+# Run setup: create directories + sample data (non-interactive)
+RUN echo "y" | python setup.py
 
-# Start server with Gunicorn (production-ready)
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "120"]
+# Train the RL agent if no model exists
+RUN python -c "\
+import os; \
+model_dir = 'models/trained_models'; \
+has_model = os.path.isdir(model_dir) and bool(os.listdir(model_dir)); \
+import subprocess, sys; \
+subprocess.run([sys.executable, 'training/train.py']) if not has_model else print('Model already exists, skipping training.')"
+
+# Expose port 8080
+EXPOSE 8080
+
+# Start server with Gunicorn on port 8080 (production-ready)
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "120"]
+
 
