@@ -39,7 +39,7 @@ subprocess.run([sys.executable, 'training/train.py']) if not has_model else prin
 # Expose port 8080
 EXPOSE 8080
 
-# Start server with Gunicorn on port 8080 (production-ready)
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "120"]
+# Start server with Uvicorn on port 8080
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
 
 
