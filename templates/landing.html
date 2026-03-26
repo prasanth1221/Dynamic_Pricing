@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,10 +10,13 @@
     <link rel="icon" href="{{ url_for('static', path='images/favicon.png') }}" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
     <!-- Hero Section -->
     <section class="hero-section">
@@ -20,17 +24,17 @@
             <div class="hero-content">
                 <h1>Dynamic Pricing using Reinforcement Learning</h1>
                 <p class="subtitle">
-                    Revolutionizing airline revenue management with intelligent, adaptive pricing strategies 
-                    powered by Deep Q-Networks
+                    Revolutionizing airline revenue management with intelligent, adaptive pricing strategies
+                    powered by Deep Q-Networks using RL
                 </p>
                 <button class="cta-button" onclick="goToSimulation()">
                     <span>🚀 Start Simulation</span>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                        <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
                 </button>
             </div>
-            
+
             <div class="hero-visual">
                 <div id="dp-animation" class="dynamic-pricing-animation"></div>
             </div>
@@ -40,8 +44,8 @@
     <!-- Why RL Section -->
     <section class="why-rl-section">
         <div class="section-container">
-            <h2 class="section-title">Why Reinforcement Learning?</h2>
-            
+            <h2 class="section-title">Why Reinforcement Learning ?</h2>
+
             <div class="comparison-grid">
                 <!-- Traditional Approaches -->
                 <div class="comparison-card">
@@ -137,13 +141,13 @@
     <section class="algorithms-section">
         <div class="section-container">
             <h2 class="section-title">Reinforcement Learning Algorithms</h2>
-            
+
             <div class="algo-grid">
                 <div class="algo-card highlighted">
                     <div class="algo-badge">Used in this project</div>
                     <h3>🎯 Deep Q-Network (DQN)</h3>
                     <p>
-                        Neural network-based Q-learning that approximates optimal action-value functions 
+                        Neural network-based Q-learning that approximates optimal action-value functions
                         for complex state spaces. Ideal for discrete action spaces like pricing adjustments.
                     </p>
                     <div class="algo-features">
@@ -156,7 +160,7 @@
                 <div class="algo-card">
                     <h3>🔄 Double DQN</h3>
                     <p>
-                        Reduces overestimation bias by decoupling action selection from evaluation, 
+                        Reduces overestimation bias by decoupling action selection from evaluation,
                         leading to more stable and accurate Q-value estimates.
                     </p>
                 </div>
@@ -164,7 +168,7 @@
                 <div class="algo-card">
                     <h3>🎲 Policy Gradient (A3C)</h3>
                     <p>
-                        Directly optimizes policy through gradient ascent, suitable for continuous 
+                        Directly optimizes policy through gradient ascent, suitable for continuous
                         action spaces and stochastic policies.
                     </p>
                 </div>
@@ -172,7 +176,7 @@
                 <div class="algo-card">
                     <h3>🌟 Proximal Policy Optimization (PPO)</h3>
                     <p>
-                        State-of-the-art method balancing sample efficiency and stability through 
+                        State-of-the-art method balancing sample efficiency and stability through
                         clipped surrogate objectives.
                     </p>
                 </div>
@@ -180,7 +184,7 @@
                 <div class="algo-card">
                     <h3>⚔️ Dueling DQN</h3>
                     <p>
-                        Separates state value and action advantage streams for better learning, 
+                        Separates state value and action advantage streams for better learning,
                         especially when many actions have similar values.
                     </p>
                 </div>
@@ -188,7 +192,7 @@
                 <div class="algo-card">
                     <h3>🎪 Soft Actor-Critic (SAC)</h3>
                     <p>
-                        Maximum entropy framework encouraging exploration while optimizing for 
+                        Maximum entropy framework encouraging exploration while optimizing for
                         both reward and policy entropy.
                     </p>
                 </div>
@@ -200,7 +204,7 @@
     <section class="architecture-section">
         <div class="section-container">
             <h2 class="section-title">System Architecture</h2>
-            
+
             <div class="architecture-diagram">
                 <div class="arch-flow">
                     <div class="arch-box">
@@ -208,33 +212,33 @@
                         <h4>Environment</h4>
                         <p>Multi-route airline market with competitor dynamics</p>
                     </div>
-                    
+
                     <div class="arch-arrow">→</div>
-                    
+
                     <div class="arch-box">
                         <div class="arch-icon">👁️</div>
                         <h4>State Observation</h4>
                         <p>Prices, load factors, days to departure, competitors</p>
                     </div>
-                    
+
                     <div class="arch-arrow">→</div>
-                    
+
                     <div class="arch-box highlight">
                         <div class="arch-icon">🧠</div>
                         <h4>DQN Agent</h4>
                         <p>4-layer neural network with 256 hidden units</p>
                     </div>
-                    
+
                     <div class="arch-arrow">→</div>
-                    
+
                     <div class="arch-box">
                         <div class="arch-icon">⚡</div>
                         <h4>Action</h4>
                         <p>Joint pricing adjustment (9 actions)</p>
                     </div>
-                    
+
                     <div class="arch-arrow">→</div>
-                    
+
                     <div class="arch-box">
                         <div class="arch-icon">💰</div>
                         <h4>Reward</h4>
@@ -315,7 +319,8 @@
                     <div class="phase">
                         <h4>Phase 4: Convergence (Episodes 700–950)</h4>
                         <p>
-                            Stable revenue around ₹2.0–2.1M with consistent load factors, indicating policy convergence.
+                            Stable revenue around ₹2.0 - 2.1M with consistent load factors, indicating policy
+                            convergence.
                         </p>
                     </div>
                 </div>
@@ -327,7 +332,7 @@
 
             <div class="performance-image-card">
                 <img src="/results/class_performance.png" alt="Class Performance">
-                <h4>Class Performance</h4>
+                <h4>Class Performances</h4>
                 <p>Revenue and demand trends across Economy and Business classes</p>
             </div>
 
@@ -361,4 +366,5 @@
 
     <script src="{{ url_for('static', path='js/landing.js') }}"></script>
 </body>
+
 </html>
